@@ -1,0 +1,38 @@
+name: perimetr_native
+description: ПЕРИМЕТР Intelligent Core — нативная Flutter-версия (Android + iOS)
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8          # системные иконки в стиле iOS
+  provider: ^6.1.2                 # состояние (замена глобального db в JS)
+  shared_preferences: ^2.3.2       # данные проектов/смет (не секреты)
+  flutter_secure_storage: ^9.2.2   # безопасное хранение API-ключей/токенов
+  camera: ^0.10.5+9                # реальная камера для AI-сканера
+  permission_handler: ^11.3.1
+  path_provider: ^2.1.4            # временные файлы для экспорта
+  share_plus: ^9.0.0                # "поделиться" файлом сметы
+  http: ^1.2.2                     # Claude API, 101 OAuth, Bitrix24 REST
+  pdf: ^3.11.1                     # генерация PDF-сметы
+  speech_to_text: ^7.0.0           # голосовой ввод (STT) для ИИ-ассистента
+  flutter_tts: ^4.0.2              # озвучка ответов ИИ (TTS)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/
+  fonts:
+    - family: DejaVuSans
+      fonts:
+        - asset: assets/fonts/DejaVuSans.ttf
+        - asset: assets/fonts/DejaVuSans-Bold.ttf
+          weight: 700
