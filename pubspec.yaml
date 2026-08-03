@@ -1,43 +1,8 @@
 name: perimetr_native
-description: ПЕРИМЕТР Intelligent Core — нативная Flutter-версия (Android + iOS)
-publish_to: 'none'
+description: "ПЕРИМЕТР Intelligent Core — нативная Flutter-версия"
+publish_to: "none"
 version: 1.0.0+1
-
-environment:
-  sdk: '>=3.0.0 <4.0.0'
-
-  dependencies:
-    flutter:
-        sdk: flutter
-          cupertino_icons: ^1.0.8
-            provider: ^6.1.2
-              shared_preferences: ^2.3.2
-                flutter_secure_storage: ^9.2.2
-                  camera: ^0.10.5+9
-                    permission_handler: ^11.3.1
-                      path_provider: ^2.1.4
-                        share_plus: ^9.0.0
-                          http: ^1.2.2
-                            pdf: ^3.11.1
-                              speech_to_text: ^7.0.0
-                                flutter_tts: ^4.0.2
-
-                                dev_dependencies:
-                                  flutter_test:
-                                      sdk: flutter
-
-                                      flutter:
-                                        uses-material-design: true
-                                          # ВРЕМЕННО убрана секция assets/fonts (DejaVuSans.ttf) — файлов шрифта
-                                            # нет в репозитории, из-за этого сборка падала. Нужны для Cyrillic
-                                              # в PDF-экспорте сметы — добавить обратно, когда появятся сами .ttf
-                                                # файлы в assets/fonts/, и вернуть блок:
-                                                  # assets:
-                                                    #   - assets/fonts/
-                                                      # fonts:
-                                                        #   - family: DejaVuSans
-                                                          #     fonts:
-                                                            #       - asset: assets/fonts/DejaVuSans.ttf
-                                                              #       - asset: assets/fonts/DejaVuSans-Bold.ttf
-                                                                #         weight: 700
-                                                                
+environment: {sdk: ">=3.0.0 <4.0.0"}
+dependencies: {flutter: {sdk: flutter}, cupertino_icons: "^1.0.8", provider: "^6.1.2", shared_preferences: "^2.3.2", flutter_secure_storage: "^9.2.2", camera: "^0.10.5+9", permission_handler: "^11.3.1", path_provider: "^2.1.4", share_plus: "^9.0.0", http: "^1.2.2", pdf: "^3.11.1", speech_to_text: "^7.0.0", flutter_tts: "^4.0.2"}
+dev_dependencies: {flutter_test: {sdk: flutter}}
+flutter: {uses-material-design: true}
