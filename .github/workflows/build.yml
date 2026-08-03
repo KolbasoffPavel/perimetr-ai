@@ -1,0 +1,40 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+    push:
+        branches: [ main ]
+
+        jobs:
+          build:
+              runs-on: ubuntu-latest
+                  steps:
+                        - name: Получить код
+                                uses: actions/checkout@v4
+
+                                      - name: Установить Java
+                                              uses: actions/setup-java@v4
+                                                      with:
+                                                                distribution: 'zulu'
+                                                                          java-version: '17'
+
+                                                                                - name: Установить Flutter
+                                                                                        uses: subosito/flutter-action@v2
+                                                                                                with:
+                                                                                                          channel: 'stable'
+                                                                                                          
+                                                                                                                - name: Добавить недостающую платформу Android
+                                                                                                                        run: flutter create --platforms=android --org com.perimetr --project-name perimetr_native .
+                                                                                                                        
+                                                                                                                              - name: Установить зависимости
+                                                                                                                                      run: flutter pub get
+                                                                                                                                      
+                                                                                                                                            - name: Собрать тестовый APK
+                                                                                                                                                    run: flutter build apk --debug
+                                                                                                                                                    
+                                                                                                                                                          - name: Сохранить APK
+                                                                                                                                                                  uses: actions/upload-artifact@v4
+                                                                                                                                                                          with:
+                                                                                                                                                                                    name: app-debug-apk
+                                                                                                                                                                                              path: build/app/outputs/flutter-apk/app-debug.apk
+                                                                                                                                                                                              
