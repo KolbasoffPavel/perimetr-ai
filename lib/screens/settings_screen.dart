@@ -1,8 +1,13 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_store.dart';
 import '../services/bitrix24_service.dart';
+import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/bento_card.dart';
@@ -23,6 +28,8 @@ final _bitrixWebhookCtrl = TextEditingController();
 
 bool _testingBitrix = false;
 String? _bitrixTestResult;
+bool _exportingBackup = false;
+bool _importingBackup = false;
 
 @override
 void initState() {
@@ -62,6 +69,45 @@ setState(() => _testingBitrix = false);
 }
 }
 
+Future<void> _exportBackup() async {
+setState(() => _exportingBackup = true);
+try {
+final appState = context.read<AppState>();
+final json = appState.exportBackupJson();
+final dir = await getTemporaryDirectory();
+final stamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+final file = File('${dir.path}/perimetr_backup_$stamp.json');
+await file.writeAsString(json);
+await Share.shareXFiles([XFile(file.path)], text: 'Резервная копия ПЕРИМЕТР');
+} catch (e) {
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка экспорта: $e')));
+}
+} finally {
+if (mounted) setState(() => _exportingBackup = false);
+}
+}
+
+Future<void> _importBackup() async {
+final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+if (result == null || result.files.single.path == null) return;
+setState(() => _importingBackup = true);
+try {
+final file = File(result.files.single.path!);
+final raw = await file.readAsString();
+final appState = context.read<AppState>();
+await appState.importBackupJson(raw);
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Резервная копия восстановлена')));
+}
+} catch (e) {
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка восстановления: $e')));
+}
+} finally {
+if (mounted) setState(() => _importingBackup = false);
+}
+}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -103,6 +149,39 @@ child: Text(
 'Чат и AI-сканер работают через встроенный защищённый сервер приложения — '
 'вводить свой API-ключ не нужно.',
 style: TextStyle(fontSize: 12, color: c.secondaryLabel),
+),
+),
+BentoCard(
+title: 'Резервная копия',
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Text(
+'Все объекты, замеры, сметы и шаблоны хранятся только на этом устройстве. '
+'Сохраните копию перед переустановкой или сменой телефона.',
+style: TextStyle(fontSize: 12, color: c.secondaryLabel),
+),
+const SizedBox(height: 12),
+Row(
+children: [
+Expanded(
+child: OutlinedButton.icon(
+onPressed: _exportingBackup ? null : _exportBackup,
+icon: const Icon(Icons.upload),
+label: Text(_exportingBackup ? 'Экспорт...' : 'Экспорт'),
+),
+),
+const SizedBox(width: 12),
+Expanded(
+child: OutlinedButton.icon(
+onPressed: _importingBackup ? null : _importBackup,
+icon: const Icon(Icons.download),
+label: Text(_importingBackup ? 'Импорт...' : 'Импорт'),
+),
+),
+],
+),
+],
 ),
 ),
 BentoCard(
