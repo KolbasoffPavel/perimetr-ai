@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
-import '../services/settings_store.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
 
@@ -13,18 +12,12 @@ State<AiChatScreen> createState() => _AiChatScreenState();
 
 class _AiChatScreenState extends State<AiChatScreen> {
 final _controller = TextEditingController();
-final _settings = SettingsStore();
 bool _sending = false;
 String? _error;
 
 Future<void> _send(AppState appState) async {
 final text = _controller.text.trim();
 if (text.isEmpty || _sending) return;
-final apiKey = await _settings.getAnthropicKey();
-if (apiKey == null || apiKey.isEmpty) {
-setState(() => _error = 'Сначала укажите API-ключ Anthropic в Настройках');
-return;
-}
 setState(() {
 _sending = true;
 _error = null;
@@ -35,7 +28,7 @@ try {
 final history = appState.activeProject.chatMessages
 .map((m) => {'role': m.role, 'text': m.text})
 .toList();
-final reply = await AiService(apiKey).chat(history);
+final reply = await AiService().chat(history);
 appState.addChatMessage('assistant', reply);
 } catch (e) {
 setState(() => _error = 'Ошибка: $e');
