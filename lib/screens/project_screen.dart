@@ -4,15 +4,16 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import 'room_photo_measure_screen.dart';
 
 class ProjectScreen extends StatelessWidget {
 const ProjectScreen({super.key});
 
-void _addRoom(BuildContext context, AppState appState) {
+void _addRoom(BuildContext context, AppState appState, {Map<String, double>? prefill}) {
 final nameCtrl = TextEditingController();
-final lengthCtrl = TextEditingController();
-final widthCtrl = TextEditingController();
-final heightCtrl = TextEditingController(text: '2.7');
+final lengthCtrl = TextEditingController(text: prefill != null ? prefill['length']!.toStringAsFixed(2) : '');
+final widthCtrl = TextEditingController(text: prefill != null ? prefill['width']!.toStringAsFixed(2) : '');
+final heightCtrl = TextEditingController(text: prefill != null ? prefill['height']!.toStringAsFixed(2) : '2.7');
 showCupertinoDialog(
 context: context,
 builder: (ctx) => CupertinoAlertDialog(
@@ -52,6 +53,15 @@ child: const Text('Добавить'),
 );
 }
 
+Future<void> _measureByPhoto(BuildContext context, AppState appState) async {
+final result = await Navigator.of(context).push<Map<String, double>>(
+MaterialPageRoute(builder: (_) => const RoomPhotoMeasureScreen()),
+);
+if (result != null && context.mounted) {
+_addRoom(context, appState, prefill: result);
+}
+}
+
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -68,9 +78,18 @@ Row(
 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 children: [
 Text('Замеры', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.label)),
+Row(
+children: [
+IconButton(
+icon: Icon(Icons.camera_alt, color: c.accent, size: 24),
+tooltip: 'Определить размеры по фото',
+onPressed: () => _measureByPhoto(context, appState),
+),
 IconButton(
 icon: Icon(Icons.add_circle, color: c.accent, size: 28),
 onPressed: () => _addRoom(context, appState),
+),
+],
 ),
 ],
 ),
