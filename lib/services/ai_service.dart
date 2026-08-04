@@ -57,4 +57,21 @@ class AiService {
     ];
     return _send(messages);
   }
+
+  /// Оценивает примерные размеры помещения по фото (в метрах), опираясь
+  /// на стандартные ориентиры (высота дверного проёма, розеток и т.п.).
+  /// Это не замена лазерному дальномеру, а быстрая ИИ-прикидка вместо
+  /// ручного ввода размеров рулеткой.
+  Future<Map<String, dynamic>> estimateRoomDimensions(String base64Image, String mediaType) async {
+    final raw = await analyzeImage(
+      base64Image,
+      mediaType,
+      'Оцени примерные размеры помещения на фото в метрах, ориентируясь на '
+      'стандартные объекты (высота дверного проёма ~2 м, розетка ~0.3 м от '
+      'пола и т.п.). Ответь СТРОГО в формате JSON без markdown-разметки и '
+      'пояснений, только одна строка: {"length": число, "width": число, "height": число}',
+    );
+    final jsonStr = raw.replaceAll(RegExp(r'```json|```'), '').trim();
+    return jsonDecode(jsonStr) as Map<String, dynamic>;
+  }
 }
