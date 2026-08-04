@@ -1,21 +1,23 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-/// Обёртка над Anthropic Messages API для чата и анализа фото.
+/// Обёртка над собственным прокси-сервером (Cloudflare Worker), который
+/// хранит ключ Anthropic на стороне сервера. Приложение НЕ содержит и
+/// НЕ хранит ключ Anthropic — только адрес прокси и общий пароль для
+/// защиты от постороннего использования (см. server/README.md).
+///
+/// ВАЖНО: после развёртывания Worker'а замените значения ниже на свои.
 class AiService {
-  final String apiKey;
-  AiService(this.apiKey);
-
-  static const _endpoint = 'https://api.anthropic.com/v1/messages';
+  static const _proxyEndpoint = 'https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev';
+  static const _appSharedSecret = 'REPLACE-WITH-YOUR-APP-SHARED-SECRET';
   static const _model = 'claude-sonnet-4-5-20250929';
 
   Future<String> _send(List<Map<String, dynamic>> messages) async {
     final response = await http.post(
-      Uri.parse(_endpoint),
+      Uri.parse(_proxyEndpoint),
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'x-app-secret': _appSharedSecret,
       },
       body: jsonEncode({
         'model': _model,
@@ -24,7 +26,7 @@ class AiService {
       }),
     );
     if (response.statusCode != 200) {
-      throw Exception('Ошибка API (${response.statusCode}): ${response.body}');
+      throw Exception('Ошибка сервера (${response.statusCode}): ${response.body}');
     }
     final data = jsonDecode(utf8.decode(response.bodyBytes));
     final content = data['content'] as List;
