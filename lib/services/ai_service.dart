@@ -59,10 +59,6 @@ class AiService {
     return _send(messages);
   }
 
-  /// Оценивает примерные размеры помещения по фото (в метрах), опираясь
-  /// на стандартные ориентиры (высота дверного проёма, розеток и т.п.).
-  /// Это не замена лазерному дальномеру, а быстрая ИИ-прикидка вместо
-  /// ручного ввода размеров рулеткой.
   Future<Map<String, dynamic>> estimateRoomDimensions(String base64Image, String mediaType) async {
     final raw = await analyzeImage(
       base64Image,
@@ -76,9 +72,6 @@ class AiService {
     return jsonDecode(jsonStr) as Map<String, dynamic>;
   }
 
-  /// Генерирует изображение "как будет после ремонта" на основе фото
-  /// помещения — через бесплатную модель Cloudflare Workers AI
-  /// (Stable Diffusion img2img), запущенную на сервере-прокси.
   Future<Uint8List> visualizeRenovation(String base64Image, String prompt) async {
     final response = await http.post(
       Uri.parse('${_proxyEndpoint}visualize'),
@@ -92,5 +85,57 @@ class AiService {
       throw Exception('Ошибка визуализации (${response.statusCode}): ${response.body}');
     }
     return response.bodyBytes;
+  }
+  /// Создаёт ссылку на смету для клиента (веб-страница с онлайн-согласованием).
+  Future<String> createEstimateShareLink({
+    required String projectName,
+    required List<Map<String, dynamic>> items,
+    required double total,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${_proxyEndpoint}estimate'),
+      headers: {
+        'content-type': 'application/json',
+        'x-app-secret': _appSharedSecret,
+      },
+      body: jsonEncode({'projectName': projectName, 'items': items, 'total': total}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Не удалось создать ссылку (${response.statusCode}): ${response.body}');
+    }
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    return data['url'] as String;
+  }
+
+  /// Проверяет, согласовал ли клиент смету по ранее выданной ссылке.
+  Future<bool> checkEstimateApproved(String estimateId) async {
+    final response = await http.get(
+      Uri.parse('${_proxyEndpoint}estimate/$estimateId/status'),
+      headers: {'x-app-secret': _appSharedSecret},
+    );
+    if (response.statusCode != 200) return false;
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    return data['approved'] == true;
+  }
+
+  /// Отправляет отчёт о сбое на сервер (лёгкая замена Firebase Crashlytics
+  /// без необходимости заводить отдельный аккаунт — видно в логах Worker'а).
+  Future<void> reportCrash(String error, String stackTrace) async {
+    try {
+      await http.post(
+        Uri.parse('${_proxyEndpoint}crash-report'),
+        headers: {
+          'content-type': 'application/json',
+          'x-app-secret': _appSharedSecret,
+        },
+        body: jsonEncode({
+          'error': error,
+          'stack': stackTrace,
+          'time': DateTime.now().toIso8601String(),
+        }),
+      );
+    } catch (_) {
+      // Не удалось отправить отчёт — не критично, приложение продолжает работу.
+    }
   }
 }
