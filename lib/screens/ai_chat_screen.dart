@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 import '../state/app_state.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
@@ -12,12 +14,61 @@ State<AiChatScreen> createState() => _AiChatScreenState();
 
 class _AiChatScreenState extends State<AiChatScreen> {
 final _controller = TextEditingController();
+final _speech = stt.SpeechToText();
+final _tts = FlutterTts();
 bool _sending = false;
+bool _listening = false;
+bool _speakReplies = false;
 String? _error;
+
+@override
+void initState() {
+super.initState();
+_tts.setLanguage('ru-RU');
+}
+
+@override
+void dispose() {
+_speech.stop();
+_tts.stop();
+super.dispose();
+}
+
+Future<void> _toggleListening() async {
+if (_listening) {
+await _speech.stop();
+setState(() => _listening = false);
+return;
+}
+final available = await _speech.initialize(
+onError: (e) => setState(() => _error = 'Ошибка распознавания: ${e.errorMsg}'),
+);
+if (!available) {
+setState(() => _error = 'Голосовой ввод недоступен на этом устройстве');
+return;
+}
+setState(() {
+_listening = true;
+_error = null;
+});
+await _speech.listen(
+localeId: 'ru_RU',
+onResult: (result) {
+setState(() => _controller.text = result.recognizedWords);
+if (result.finalResult) {
+setState(() => _listening = false);
+}
+},
+);
+}
 
 Future<void> _send(AppState appState) async {
 final text = _controller.text.trim();
 if (text.isEmpty || _sending) return;
+if (_listening) {
+await _speech.stop();
+setState(() => _listening = false);
+}
 setState(() {
 _sending = true;
 _error = null;
@@ -30,6 +81,9 @@ final history = appState.activeProject.chatMessages
 .toList();
 final reply = await AiService().chat(history);
 appState.addChatMessage('assistant', reply);
+if (_speakReplies) {
+await _tts.speak(reply);
+}
 } catch (e) {
 setState(() => _error = 'Ошибка: $e');
 } finally {
@@ -45,6 +99,16 @@ final messages = appState.activeProject.chatMessages;
 
 return Scaffold(
 backgroundColor: c.background,
+appBar: AppBar(
+title: const Text('ИИ Чат'),
+actions: [
+IconButton(
+icon: Icon(_speakReplies ? Icons.volume_up : Icons.volume_off, color: c.label),
+tooltip: 'Озвучивать ответы',
+onPressed: () => setState(() => _speakReplies = !_speakReplies),
+),
+],
+),
 body: Column(
 children: [
 Expanded(
@@ -89,11 +153,15 @@ child: Padding(
 padding: const EdgeInsets.all(12),
 child: Row(
 children: [
+IconButton(
+icon: Icon(_listening ? Icons.mic : Icons.mic_none, color: _listening ? c.destructive : c.accent),
+onPressed: _toggleListening,
+),
 Expanded(
 child: TextField(
 controller: _controller,
 style: TextStyle(color: c.label),
-decoration: const InputDecoration(hintText: 'Сообщение...'),
+decoration: InputDecoration(hintText: _listening ? 'Слушаю...' : 'Сообщение...'),
 onSubmitted: (_) => _send(appState),
 ),
 ),
