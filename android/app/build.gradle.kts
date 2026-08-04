@@ -19,15 +19,6 @@ namespace = "com.perimetr.perimetr_native"
 compileSdk = flutter.compileSdkVersion
 ndkVersion = flutter.ndkVersion
 
-compileOptions {
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = JavaVersion.VERSION_11
-}
-
-kotlinOptions {
-jvmTarget = JavaVersion.VERSION_11.toString()
-}
-
 defaultConfig {
 applicationId = "com.perimetr.perimetr_native"
 minSdk = flutter.minSdkVersion
