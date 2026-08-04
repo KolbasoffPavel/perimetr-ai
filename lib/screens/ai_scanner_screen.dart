@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import '../services/settings_store.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
@@ -16,7 +15,6 @@ State<AiScannerScreen> createState() => _AiScannerScreenState();
 class _AiScannerScreenState extends State<AiScannerScreen> {
 CameraController? _controller;
 Future<void>? _initFuture;
-final _settings = SettingsStore();
 XFile? _photo;
 bool _analyzing = false;
 String? _result;
@@ -59,11 +57,6 @@ setState(() => _error = 'Не удалось сделать снимок: $e');
 
 Future<void> _analyze() async {
 if (_analyzing || _photo == null) return;
-final apiKey = await _settings.getAnthropicKey();
-if (apiKey == null || apiKey.isEmpty) {
-setState(() => _error = 'Сначала укажите API-ключ Anthropic в Настройках');
-return;
-}
 setState(() {
 _analyzing = true;
 _error = null;
@@ -71,7 +64,7 @@ _error = null;
 try {
 final bytes = await File(_photo!.path).readAsBytes();
 final base64Image = base64Encode(bytes);
-final reply = await AiService(apiKey).analyzeImage(
+final reply = await AiService().analyzeImage(
 base64Image,
 'image/jpeg',
 'Ты помощник по ремонту квартир. Опиши состояние помещения на фото и предположи, '
