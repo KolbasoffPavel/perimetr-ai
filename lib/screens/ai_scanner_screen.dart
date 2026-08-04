@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../services/ai_service.dart';
@@ -17,7 +18,9 @@ CameraController? _controller;
 Future<void>? _initFuture;
 XFile? _photo;
 bool _analyzing = false;
+bool _visualizing = false;
 String? _result;
+Uint8List? _visualization;
 String? _error;
 
 @override
@@ -48,6 +51,7 @@ final file = await _controller!.takePicture();
 setState(() {
 _photo = file;
 _result = null;
+_visualization = null;
 _error = null;
 });
 } catch (e) {
@@ -75,6 +79,28 @@ setState(() => _result = reply);
 setState(() => _error = 'Ошибка анализа: $e');
 } finally {
 setState(() => _analyzing = false);
+}
+}
+
+Future<void> _visualize() async {
+if (_visualizing || _photo == null) return;
+setState(() {
+_visualizing = true;
+_error = null;
+});
+try {
+final bytes = await File(_photo!.path).readAsBytes();
+final base64Image = base64Encode(bytes);
+final image = await AiService().visualizeRenovation(
+base64Image,
+'photorealistic modern renovated home interior, clean fresh walls, '
+'new flooring, tidy, well decorated, high quality interior design photo',
+);
+setState(() => _visualization = image);
+} catch (e) {
+setState(() => _error = 'Ошибка визуализации: $e');
+} finally {
+setState(() => _visualizing = false);
 }
 }
 
@@ -135,6 +161,7 @@ child: OutlinedButton(
 onPressed: () => setState(() {
 _photo = null;
 _result = null;
+_visualization = null;
 }),
 child: const Text('Переснять'),
 ),
@@ -154,6 +181,30 @@ const SizedBox(height: 16),
 BentoCard(
 title: 'Результат анализа',
 child: Text(_result!, style: TextStyle(color: c.label)),
+),
+const SizedBox(height: 12),
+GradientButton(
+label: _visualizing ? 'Генерация...' : 'Показать, как будет после ремонта',
+icon: Icons.wallpaper,
+tone: ButtonTone.secondary,
+onPressed: _visualize,
+),
+],
+if (_visualization != null) ...[
+const SizedBox(height: 16),
+BentoCard(
+title: 'Визуализация (черновой набросок ИИ)',
+child: ClipRRect(
+borderRadius: BorderRadius.circular(10),
+child: Image.memory(_visualization!),
+),
+),
+Padding(
+padding: const EdgeInsets.only(top: 6),
+child: Text(
+'Это быстрый черновой эскиз бесплатной ИИ-моделью, а не точный дизайн-проект.',
+style: TextStyle(color: c.tertiaryLabel, fontSize: 11),
+),
 ),
 ],
 ],
