@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
@@ -69,17 +70,28 @@ appState.addAttachment(file.name, file.path!);
 
 Future<void> _exportPdf(BuildContext context, AppState appState) async {
 final project = appState.activeProject;
-final doc = pw.Document();
+
+// Шрифт Inter (кириллица) подгружается с Google Fonts прямо в момент
+// сборки PDF — не требует хранения .ttf файлов в репозитории.
+final regularFont = await PdfGoogleFonts.interRegular();
+final boldFont = await PdfGoogleFonts.interBold();
+
+final doc = pw.Document(
+theme: pw.ThemeData.withFont(base: regularFont, bold: boldFont),
+);
+
 doc.addPage(
 pw.Page(
 build: (pw.Context ctx) {
 return pw.Column(
 crossAxisAlignment: pw.CrossAxisAlignment.start,
 children: [
-pw.Text('Estimate: ${project.name}', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+pw.Text('Смета: ${project.name}', style: pw.TextStyle(fontSize: 20, font: boldFont)),
 pw.SizedBox(height: 16),
 pw.Table.fromTextArray(
-headers: ['#', 'Item', 'Unit', 'Qty', 'Price', 'Total'],
+headers: ['#', 'Наименование', 'Ед.', 'Кол-во', 'Цена', 'Сумма'],
+headerStyle: pw.TextStyle(font: boldFont),
+cellStyle: pw.TextStyle(font: regularFont),
 data: [
 for (var i = 0; i < project.estimateItems.length; i++)
 [
@@ -93,7 +105,7 @@ project.estimateItems[i].total.toStringAsFixed(0),
 ],
 ),
 pw.SizedBox(height: 16),
-pw.Text('Total: ${appState.estimateTotal.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+pw.Text('Итого: ${appState.estimateTotal.toStringAsFixed(0)} ₽', style: pw.TextStyle(fontSize: 16, font: boldFont)),
 ],
 );
 },
