@@ -74,6 +74,36 @@ Map<String, dynamic> toJson() => {'role': role, 'text': text};
 factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(role: j['role'] as String, text: j['text'] as String);
 }
 
+/// Позиция внутри сохранённого шаблона сметы (без id — id присваивается
+/// заново при применении шаблона к конкретной смете).
+class TemplateItem {
+String name;
+String unit;
+double quantity;
+double price;
+TemplateItem({required this.name, required this.unit, required this.quantity, required this.price});
+Map<String, dynamic> toJson() => {'name': name, 'unit': unit, 'quantity': quantity, 'price': price};
+factory TemplateItem.fromJson(Map<String, dynamic> j) => TemplateItem(
+name: j['name'] as String,
+unit: j['unit'] as String,
+quantity: (j['quantity'] as num).toDouble(),
+price: (j['price'] as num).toDouble(),
+);
+}
+
+class EstimateTemplate {
+final String id;
+String name;
+final List<TemplateItem> items;
+EstimateTemplate({required this.id, required this.name, required this.items});
+Map<String, dynamic> toJson() => {'id': id, 'name': name, 'items': items.map((i) => i.toJson()).toList()};
+factory EstimateTemplate.fromJson(Map<String, dynamic> j) => EstimateTemplate(
+id: j['id'] as String,
+name: j['name'] as String,
+items: (j['items'] as List).map((x) => TemplateItem.fromJson(x as Map<String, dynamic>)).toList(),
+);
+}
+
 class Project {
 final String id;
 String name;
@@ -101,10 +131,10 @@ p.chatMessages.addAll((j['chatMessages'] as List).map((x) => ChatMessage.fromJso
 return p;
 }
 }
-
 /// Общее состояние приложения: объекты (проекты), их помещения, сметы,
-/// вложения и переписка с ИИ, плюс общий прайс-лист. Автоматически
-/// сохраняется на устройство и восстанавливается при следующем запуске.
+/// вложения и переписка с ИИ, плюс общий прайс-лист и шаблоны смет.
+/// Автоматически сохраняется на устройство и восстанавливается при
+/// следующем запуске.
 class AppState extends ChangeNotifier {
 bool loaded = false;
 int _seq = 0;
@@ -116,6 +146,7 @@ final List<Project> projects = [];
 String activeProjectId = '';
 
 final List<PriceItem> priceList = [];
+final List<EstimateTemplate> templates = [];
 
 AppState() {
 _init();
@@ -134,9 +165,13 @@ final loadedProjects = (data['projects'] as List)
 final loadedPrices = (data['priceList'] as List)
 .map((x) => PriceItem.fromJson(x as Map<String, dynamic>))
 .toList();
+final loadedTemplates = ((data['templates'] as List?) ?? [])
+.map((x) => EstimateTemplate.fromJson(x as Map<String, dynamic>))
+.toList();
 if (loadedProjects.isNotEmpty) {
 projects.addAll(loadedProjects);
 priceList.addAll(loadedPrices);
+templates.addAll(loadedTemplates);
 activeProjectId = data['activeProjectId'] as String? ?? projects.first.id;
 loaded = true;
 notifyListeners();
@@ -172,6 +207,7 @@ final data = {
 'activeProjectId': activeProjectId,
 'projects': projects.map((p) => p.toJson()).toList(),
 'priceList': priceList.map((p) => p.toJson()).toList(),
+'templates': templates.map((t) => t.toJson()).toList(),
 };
 await prefs.setString(_storageKey, jsonEncode(data));
 } catch (_) {
@@ -250,5 +286,77 @@ void addChatMessage(String role, String text) {
 activeProject.chatMessages.add(ChatMessage(role: role, text: text));
 notifyListeners();
 _persist();
+}
+// --- Шаблоны смет ---
+void saveCurrentAsTemplate(String name) {
+final items = activeProject.estimateItems
+.map((e) => TemplateItem(name: e.name, unit: e.unit, quantity: e.quantity, price: e.price))
+.toList();
+templates.add(EstimateTemplate(id: _nextId(), name: name, items: items));
+notifyListeners();
+_persist();
+}
+
+void applyTemplate(String templateId) {
+final tpl = templates.firstWhere((t) => t.id == templateId);
+for (final item in tpl.items) {
+activeProject.estimateItems.add(EstimateItem(
+id: _nextId(),
+name: item.name,
+unit: item.unit,
+quantity: item.quantity,
+price: item.price,
+));
+}
+notifyListeners();
+_persist();
+}
+
+void removeTemplate(String id) {
+templates.removeWhere((t) => t.id == id);
+notifyListeners();
+_persist();
+}
+
+// --- Резервная копия ---
+String exportBackupJson() {
+final data = {
+'seq': _seq,
+'activeProjectId': activeProjectId,
+'projects': projects.map((p) => p.toJson()).toList(),
+'priceList': priceList.map((p) => p.toJson()).toList(),
+'templates': templates.map((t) => t.toJson()).toList(),
+'exportedAt': DateTime.now().toIso8601String(),
+};
+return const JsonEncoder.withIndent('  ').convert(data);
+}
+
+Future<void> importBackupJson(String raw) async {
+final data = jsonDecode(raw) as Map<String, dynamic>;
+final newProjects = (data['projects'] as List)
+.map((x) => Project.fromJson(x as Map<String, dynamic>))
+.toList();
+final newPrices = (data['priceList'] as List)
+.map((x) => PriceItem.fromJson(x as Map<String, dynamic>))
+.toList();
+final newTemplates = ((data['templates'] as List?) ?? [])
+.map((x) => EstimateTemplate.fromJson(x as Map<String, dynamic>))
+.toList();
+if (newProjects.isEmpty) {
+throw Exception('В файле резервной копии нет объектов');
+}
+projects
+..clear()
+..addAll(newProjects);
+priceList
+..clear()
+..addAll(newPrices);
+templates
+..clear()
+..addAll(newTemplates);
+activeProjectId = data['activeProjectId'] as String? ?? projects.first.id;
+_seq = data['seq'] as int? ?? _seq;
+notifyListeners();
+await _persist();
 }
 }
