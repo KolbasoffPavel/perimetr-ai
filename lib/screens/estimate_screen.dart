@@ -8,11 +8,20 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../services/settings_store.dart';
+import '../services/bitrix24_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
 
-class EstimateScreen extends StatelessWidget {
+class EstimateScreen extends StatefulWidget {
 const EstimateScreen({super.key});
+@override
+State<EstimateScreen> createState() => _EstimateScreenState();
+}
+
+class _EstimateScreenState extends State<EstimateScreen> {
+final _settings = SettingsStore();
+bool _pushingToBitrix = false;
 
 void _addItem(BuildContext context, AppState appState) {
 final nameCtrl = TextEditingController();
@@ -70,15 +79,9 @@ appState.addAttachment(file.name, file.path!);
 
 Future<void> _exportPdf(BuildContext context, AppState appState) async {
 final project = appState.activeProject;
-
-// Шрифт Inter (кириллица) подгружается с Google Fonts прямо в момент
-// сборки PDF — не требует хранения .ttf файлов в репозитории.
 final regularFont = await PdfGoogleFonts.interRegular();
 final boldFont = await PdfGoogleFonts.interBold();
-
-final doc = pw.Document(
-theme: pw.ThemeData.withFont(base: regularFont, bold: boldFont),
-);
+final doc = pw.Document(theme: pw.ThemeData.withFont(base: regularFont, bold: boldFont));
 
 doc.addPage(
 pw.Page(
@@ -115,6 +118,34 @@ final dir = await getTemporaryDirectory();
 final file = File('${dir.path}/estimate.pdf');
 await file.writeAsBytes(await doc.save());
 await Share.shareXFiles([XFile(file.path)], text: 'Смета: ${project.name}');
+}
+
+Future<void> _pushToBitrix(BuildContext context, AppState appState) async {
+setState(() => _pushingToBitrix = true);
+try {
+final project = appState.activeProject;
+final items = project.estimateItems
+.map((e) => {'name': e.name, 'unit': e.unit, 'quantity': e.quantity, 'price': e.price, 'total': e.total})
+.toList();
+final dealId = await Bitrix24Service(_settings).pushEstimateAsDeal(
+projectName: project.name,
+items: items,
+total: appState.estimateTotal,
+);
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(content: Text('Сделка №$dealId создана в Bitrix24')),
+);
+}
+} catch (e) {
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(content: Text('$e')),
+);
+}
+} finally {
+if (mounted) setState(() => _pushingToBitrix = false);
+}
 }
 
 @override
@@ -219,8 +250,16 @@ label: const Text('Загрузить файл'),
 ),
 ),
 const SizedBox(height: 16),
-if (items.isNotEmpty)
+if (items.isNotEmpty) ...[
 GradientButton(label: 'Экспорт в PDF', icon: Icons.share, onPressed: () => _exportPdf(context, appState)),
+const SizedBox(height: 12),
+GradientButton(
+label: _pushingToBitrix ? 'Отправка...' : 'Выгрузить в Bitrix24',
+icon: Icons.cloud_upload,
+tone: ButtonTone.secondary,
+onPressed: () => _pushingToBitrix ? null : _pushToBitrix(context, appState),
+),
+],
 ],
 ),
 ),
