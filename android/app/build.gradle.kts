@@ -16,7 +16,7 @@ keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 
 android {
 namespace = "com.perimetr.perimetr_native"
-compileSdk = flutter.compileSdkVersion
+compileSdk = 36
 ndkVersion = flutter.ndkVersion
 
 compileOptions {
