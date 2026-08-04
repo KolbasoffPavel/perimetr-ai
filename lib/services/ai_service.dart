@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 /// Обёртка над собственным прокси-сервером (Cloudflare Worker), который
-/// хранит ключ Anthropic на стороне сервера. Приложение НЕ содержит и
-/// НЕ хранит ключ Anthropic — только адрес прокси и общий пароль для
-/// защиты от постороннего использования (см. server/README.md).
+/// хранит ключи Anthropic и Cloudflare AI на стороне сервера. Приложение
+/// НЕ содержит и НЕ хранит эти ключи — только адрес прокси и общий пароль
+/// для защиты от постороннего использования (см. server/README.md).
 class AiService {
   static const _proxyEndpoint = 'https://perimetr-ai-proxy.koolbasoff-pavel.workers.dev/';
   static const _appSharedSecret = 'Badman777';
@@ -73,5 +74,23 @@ class AiService {
     );
     final jsonStr = raw.replaceAll(RegExp(r'```json|```'), '').trim();
     return jsonDecode(jsonStr) as Map<String, dynamic>;
+  }
+
+  /// Генерирует изображение "как будет после ремонта" на основе фото
+  /// помещения — через бесплатную модель Cloudflare Workers AI
+  /// (Stable Diffusion img2img), запущенную на сервере-прокси.
+  Future<Uint8List> visualizeRenovation(String base64Image, String prompt) async {
+    final response = await http.post(
+      Uri.parse('${_proxyEndpoint}visualize'),
+      headers: {
+        'content-type': 'application/json',
+        'x-app-secret': _appSharedSecret,
+      },
+      body: jsonEncode({'image': base64Image, 'prompt': prompt}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Ошибка визуализации (${response.statusCode}): ${response.body}');
+    }
+    return response.bodyBytes;
   }
 }
