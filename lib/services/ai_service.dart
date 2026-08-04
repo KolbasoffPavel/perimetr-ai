@@ -5,11 +5,9 @@ import 'package:http/http.dart' as http;
 /// хранит ключ Anthropic на стороне сервера. Приложение НЕ содержит и
 /// НЕ хранит ключ Anthropic — только адрес прокси и общий пароль для
 /// защиты от постороннего использования (см. server/README.md).
-///
-/// ВАЖНО: после развёртывания Worker'а замените значения ниже на свои.
 class AiService {
-  static const _proxyEndpoint = 'https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev';
-  static const _appSharedSecret = 'REPLACE-WITH-YOUR-APP-SHARED-SECRET';
+  static const _proxyEndpoint = 'https://perimetr-ai-proxy.koolbasoff-pavel.workers.dev/';
+  static const _appSharedSecret = 'Badman777';
   static const _model = 'claude-sonnet-4-5-20250929';
 
   Future<String> _send(List<Map<String, dynamic>> messages) async {
