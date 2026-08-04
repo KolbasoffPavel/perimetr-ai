@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../services/settings_store.dart';
 import '../services/bitrix24_service.dart';
+import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
 
@@ -22,6 +23,7 @@ State<EstimateScreen> createState() => _EstimateScreenState();
 class _EstimateScreenState extends State<EstimateScreen> {
 final _settings = SettingsStore();
 bool _pushingToBitrix = false;
+bool _sharingLink = false;
 
 void _addItem(BuildContext context, AppState appState) {
 final nameCtrl = TextEditingController();
@@ -67,6 +69,94 @@ child: const Text('Добавить'),
 );
 }
 
+void _showTemplates(BuildContext context, AppState appState) {
+showModalBottomSheet(
+context: context,
+backgroundColor: context.colors.cardBackground,
+shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+builder: (ctx) {
+final c = context.colors;
+return SafeArea(
+child: Padding(
+padding: const EdgeInsets.all(16),
+child: Column(
+mainAxisSize: MainAxisSize.min,
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Text('Шаблоны смет', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: c.label)),
+const SizedBox(height: 12),
+if (appState.templates.isEmpty)
+Padding(
+padding: const EdgeInsets.symmetric(vertical: 12),
+child: Text('Шаблонов пока нет', style: TextStyle(color: c.secondaryLabel)),
+)
+else
+...appState.templates.map((t) => ListTile(
+contentPadding: EdgeInsets.zero,
+title: Text(t.name, style: TextStyle(color: c.label)),
+subtitle: Text('${t.items.length} позиций', style: TextStyle(color: c.secondaryLabel, fontSize: 12)),
+trailing: IconButton(
+icon: Icon(Icons.delete_outline, color: c.destructive),
+onPressed: () {
+appState.removeTemplate(t.id);
+Navigator.pop(ctx);
+},
+),
+onTap: () {
+appState.applyTemplate(t.id);
+Navigator.pop(ctx);
+},
+)),
+const Divider(),
+ListTile(
+contentPadding: EdgeInsets.zero,
+leading: Icon(Icons.add, color: c.accent),
+title: Text('Сохранить текущую смету как шаблон', style: TextStyle(color: c.accent)),
+onTap: () {
+Navigator.pop(ctx);
+_promptSaveTemplate(context, appState);
+},
+),
+],
+),
+),
+);
+},
+);
+}
+
+void _promptSaveTemplate(BuildContext context, AppState appState) {
+if (appState.activeProject.estimateItems.isEmpty) {
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(content: Text('Смета пуста — нечего сохранять')),
+);
+return;
+}
+final nameCtrl = TextEditingController();
+showCupertinoDialog(
+context: context,
+builder: (ctx) => CupertinoAlertDialog(
+title: const Text('Название шаблона'),
+content: Padding(
+padding: const EdgeInsets.only(top: 12),
+child: CupertinoTextField(controller: nameCtrl, placeholder: 'Например: Ремонт ванной'),
+),
+actions: [
+CupertinoDialogAction(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+CupertinoDialogAction(
+isDefaultAction: true,
+onPressed: () {
+if (nameCtrl.text.trim().isEmpty) return;
+appState.saveCurrentAsTemplate(nameCtrl.text.trim());
+Navigator.pop(ctx);
+},
+child: const Text('Сохранить'),
+),
+],
+),
+);
+}
+
 Future<void> _uploadFile(BuildContext context, AppState appState) async {
 final result = await FilePicker.platform.pickFiles(allowMultiple: true);
 if (result == null) return;
@@ -76,7 +166,6 @@ appState.addAttachment(file.name, file.path!);
 }
 }
 }
-
 Future<void> _exportPdf(BuildContext context, AppState appState) async {
 final project = appState.activeProject;
 final regularFont = await PdfGoogleFonts.interRegular();
@@ -139,12 +228,34 @@ SnackBar(content: Text('Сделка №$dealId создана в Bitrix24')),
 }
 } catch (e) {
 if (mounted) {
-ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(content: Text('$e')),
-);
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
 }
 } finally {
 if (mounted) setState(() => _pushingToBitrix = false);
+}
+}
+
+Future<void> _shareLink(BuildContext context, AppState appState) async {
+setState(() => _sharingLink = true);
+try {
+final project = appState.activeProject;
+final items = project.estimateItems
+.map((e) => {'name': e.name, 'unit': e.unit, 'quantity': e.quantity, 'price': e.price, 'total': e.total})
+.toList();
+final url = await AiService().createEstimateShareLink(
+projectName: project.name,
+items: items,
+total: appState.estimateTotal,
+);
+if (mounted) {
+await Share.share('Смета «${project.name}»: $url');
+}
+} catch (e) {
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+}
+} finally {
+if (mounted) setState(() => _sharingLink = false);
 }
 }
 
@@ -166,9 +277,18 @@ Row(
 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 children: [
 Text('Смета', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.label)),
+Row(
+children: [
+IconButton(
+icon: Icon(Icons.dashboard_customize_outlined, color: c.accent),
+tooltip: 'Шаблоны',
+onPressed: () => _showTemplates(context, appState),
+),
 IconButton(
 icon: Icon(Icons.add_circle, color: c.accent, size: 28),
 onPressed: () => _addItem(context, appState),
+),
+],
 ),
 ],
 ),
@@ -177,7 +297,7 @@ if (items.isEmpty)
 Padding(
 padding: const EdgeInsets.symmetric(vertical: 24),
 child: Center(
-child: Text('Смета пуста — добавьте позиции вручную или из раздела «Цены»',
+child: Text('Смета пуста — добавьте позиции вручную, из «Цен» или примените шаблон',
 style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center),
 ),
 )
@@ -251,7 +371,13 @@ label: const Text('Загрузить файл'),
 ),
 const SizedBox(height: 16),
 if (items.isNotEmpty) ...[
-GradientButton(label: 'Экспорт в PDF', icon: Icons.share, onPressed: () => _exportPdf(context, appState)),
+GradientButton(
+label: _sharingLink ? 'Отправка...' : 'Ссылка для клиента',
+icon: Icons.link,
+onPressed: () => _sharingLink ? null : _shareLink(context, appState),
+),
+const SizedBox(height: 12),
+GradientButton(label: 'Экспорт в PDF', icon: Icons.share, tone: ButtonTone.secondary, onPressed: () => _exportPdf(context, appState)),
 const SizedBox(height: 12),
 GradientButton(
 label: _pushingToBitrix ? 'Отправка...' : 'Выгрузить в Bitrix24',
