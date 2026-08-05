@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,10 +9,8 @@ import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'screens/home_shell.dart';
 import 'services/ai_service.dart';
-import 'services/doh_http_overrides.dart';
 
 void main() {
-  HttpOverrides.global = DohHttpOverrides();
   runZonedGuarded(() {
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
