@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
-/// Обёртка над собственным прокси-сервером (Cloudflare Worker), который
-/// хранит ключи Anthropic и Cloudflare AI на стороне сервера. Приложение
-/// НЕ содержит и НЕ хранит эти ключи — только адрес прокси и общий пароль
-/// для защиты от постороннего использования (см. server/README.md).
+/// Обёртка над собственным прокси-сервером (Cloudflare Worker на своём
+/// домене), который хранит ключи Anthropic и Cloudflare AI на стороне
+/// сервера. Приложение НЕ содержит и НЕ хранит эти ключи — только адрес
+/// прокси и общий пароль для защиты от постороннего использования
+/// (см. server/README.md).
 class AiService {
-  static const _proxyEndpoint = 'https://perimetr-ai-proxy.koolbasoff-pavel.workers.dev/';
+  static const _proxyEndpoint = 'https://api.perimetr-app.uk/';
   static const _appSharedSecret = 'Badman777';
   static const _model = 'claude-sonnet-4-5-20250929';
 
@@ -86,7 +87,6 @@ class AiService {
     }
     return response.bodyBytes;
   }
-  /// Создаёт ссылку на смету для клиента (веб-страница с онлайн-согласованием).
   Future<String> createEstimateShareLink({
     required String projectName,
     required List<Map<String, dynamic>> items,
@@ -107,7 +107,6 @@ class AiService {
     return data['url'] as String;
   }
 
-  /// Проверяет, согласовал ли клиент смету по ранее выданной ссылке.
   Future<bool> checkEstimateApproved(String estimateId) async {
     final response = await http.get(
       Uri.parse('${_proxyEndpoint}estimate/$estimateId/status'),
@@ -118,8 +117,6 @@ class AiService {
     return data['approved'] == true;
   }
 
-  /// Отправляет отчёт о сбое на сервер (лёгкая замена Firebase Crashlytics
-  /// без необходимости заводить отдельный аккаунт — видно в логах Worker'а).
   Future<void> reportCrash(String error, String stackTrace) async {
     try {
       await http.post(
