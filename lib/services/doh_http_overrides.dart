@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
-/// Обходит системный DNS-резолвер устройства (у части пользователей он не
-/// может найти адрес нашего сервера, хотя браузер на том же телефоне и той
-/// же сети открывает его без проблем). Резолвит домены через DNS-over-HTTPS
-/// (сначала Cloudflare, затем Google как запасной вариант) — тем же
-/// способом, каким это делают браузеры.
+/// Пытается сначала подключиться обычным системным способом (работает и
+/// на нормальной сети, и через VPN — VPN сам туннелирует системный DNS).
+/// Только если это не получилось, пробует DNS-over-HTTPS (Cloudflare,
+/// затем Google) как запасной вариант — на случай, если у устройства
+/// сломан именно системный DNS-резолвер, а VPN не используется.
 class DohHttpOverrides extends HttpOverrides {
   static final Map<String, String> _cache = {};
 
@@ -22,8 +22,14 @@ class DohHttpOverrides extends HttpOverrides {
       if (InternetAddress.tryParse(uri.host) != null) {
         return Socket.startConnect(uri.host, uri.port);
       }
-      final ip = await _resolve(uri.host);
-      return Socket.startConnect(ip, uri.port);
+      try {
+        final task = Socket.startConnect(uri.host, uri.port);
+        final socket = await task.socket.timeout(const Duration(seconds: 6));
+        return ConnectionTask<Socket>.fromSocket(socket, task.cancel);
+      } catch (_) {
+        final ip = await _resolve(uri.host);
+        return Socket.startConnect(ip, uri.port);
+      }
     };
     return client;
   }
@@ -64,8 +70,8 @@ class DohHttpOverrides extends HttpOverrides {
       }
     }
     throw SocketException(
-      'DNS-over-HTTPS не смог найти адрес для $host (пробовали ${_resolvers.map((r) => r.$1).join(", ")}). '
-      'Подробности: ${errors.join(" | ")}',
+      'Не удалось подключиться к $host ни системным DNS, ни через DNS-over-HTTPS '
+      '(пробовали ${_resolvers.map((r) => r.$1).join(", ")}). Подробности: ${errors.join(" | ")}',
     );
   }
 }
