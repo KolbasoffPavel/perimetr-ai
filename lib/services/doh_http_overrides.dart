@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 /// Пытается сначала подключиться обычным системным способом (работает и
 /// на нормальной сети, и через VPN — VPN сам туннелирует системный DNS).
 /// Только если это не получилось, пробует DNS-over-HTTPS (Cloudflare,
-/// затем Google) как запасной вариант — на случай, если у устройства
-/// сломан именно системный DNS-резолвер, а VPN не используется.
+/// затем Google) как запасной вариант. Если не сработало и это — бросает
+/// исключение с ПОЛНОЙ картиной: почему упал и системный путь, и DoH.
 class DohHttpOverrides extends HttpOverrides {
   static final Map<String, String> _cache = {};
 
@@ -22,13 +22,21 @@ class DohHttpOverrides extends HttpOverrides {
       if (InternetAddress.tryParse(uri.host) != null) {
         return Socket.startConnect(uri.host, uri.port);
       }
+      Object? systemError;
       try {
         final task = await Socket.startConnect(uri.host, uri.port);
         await task.socket.timeout(const Duration(seconds: 6));
         return task;
-      } catch (_) {
+      } catch (e) {
+        systemError = e;
+      }
+      try {
         final ip = await _resolve(uri.host);
         return Socket.startConnect(ip, uri.port);
+      } catch (dohError) {
+        throw SocketException(
+          'Системное подключение: $systemError | $dohError',
+        );
       }
     };
     return client;
@@ -69,9 +77,6 @@ class DohHttpOverrides extends HttpOverrides {
         errors.add('$ip: $e');
       }
     }
-    throw SocketException(
-      'Не удалось подключиться к $host ни системным DNS, ни через DNS-over-HTTPS '
-      '(пробовали ${_resolvers.map((r) => r.$1).join(", ")}). Подробности: ${errors.join(" | ")}',
-    );
+    throw SocketException('DoH: ${errors.join(" | ")}');
   }
 }
