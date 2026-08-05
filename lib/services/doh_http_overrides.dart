@@ -23,9 +23,9 @@ class DohHttpOverrides extends HttpOverrides {
         return Socket.startConnect(uri.host, uri.port);
       }
       try {
-        final task = Socket.startConnect(uri.host, uri.port);
-        final socket = await task.socket.timeout(const Duration(seconds: 6));
-        return ConnectionTask<Socket>.fromSocket(socket, task.cancel);
+        final task = await Socket.startConnect(uri.host, uri.port);
+        await task.socket.timeout(const Duration(seconds: 6));
+        return task;
       } catch (_) {
         final ip = await _resolve(uri.host);
         return Socket.startConnect(ip, uri.port);
