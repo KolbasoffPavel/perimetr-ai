@@ -16,16 +16,16 @@ subprojects {
 project.evaluationDependsOn(":app")
 }
 
-// Некоторые сторонние плагины (например, opencv_dart, используемый
-// flutter_panorama) объявляют внутри себя устаревший compileSdk, который
-// конфликтует с более новыми зависимостями (androidx.fragment,
-// androidx.exifinterface и т.п., требующими compileSdk 34+). Мы не можем
-// поправить это внутри самого плагина (он приходит из pub cache), поэтому
-// принудительно поднимаем compileSdk для ВСЕХ подмодулей проекта, включая
-// плагины, до 36 — уже ПОСЛЕ того, как модуль настроит себя сам, чтобы
-// наш override не был перезаписан его собственным значением. Учитываем
-// оба варианта порядка evaluation в разных архитектурах Gradle-загрузки.
+// opencv_dart (используется flutter_panorama) объявляет внутри себя
+// устаревший compileSdk=33, который конфликтует с более новыми
+// зависимостями (androidx.fragment, androidx.exifinterface и т.п.,
+// требующими compileSdk 34+). Поднимаем compileSdk ТОЛЬКО для этого
+// конкретного модуля — трогать остальные подмодули/плагины не нужно и
+// местами даже опасно (некоторые из них, например ar_flutter_plugin_plus,
+// фиксируют свой compileSdk раньше, чем можно его переопределить, и падают
+// с ошибкой "too late to set compileSdk" при попытке).
 subprojects {
+if (project.name == "opencv_dart") {
 plugins.withId("com.android.library") {
 val ext = extensions.getByType(com.android.build.gradle.LibraryExtension::class.java)
 if (project.state.executed) {
@@ -33,13 +33,6 @@ ext.compileSdkVersion(36)
 } else {
 afterEvaluate { ext.compileSdkVersion(36) }
 }
-}
-plugins.withId("com.android.application") {
-val ext = extensions.getByType(com.android.build.gradle.AppExtension::class.java)
-if (project.state.executed) {
-ext.compileSdkVersion(36)
-} else {
-afterEvaluate { ext.compileSdkVersion(36) }
 }
 }
 }
