@@ -2,21 +2,69 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class WallPoint {
+double x;
+double y;
+WallPoint({required this.x, required this.y});
+Map<String, dynamic> toJson() => {'x': x, 'y': y};
+factory WallPoint.fromJson(Map<String, dynamic> j) => WallPoint(x: (j['x'] as num).toDouble(), y: (j['y'] as num).toDouble());
+}
+
+class FloorPlanItem {
+final String id;
+String type;
+double x;
+double y;
+FloorPlanItem({required this.id, required this.type, required this.x, required this.y});
+Map<String, dynamic> toJson() => {'id': id, 'type': type, 'x': x, 'y': y};
+factory FloorPlanItem.fromJson(Map<String, dynamic> j) => FloorPlanItem(
+id: j['id'] as String,
+type: j['type'] as String,
+x: (j['x'] as num).toDouble(),
+y: (j['y'] as num).toDouble(),
+);
+}
+
+class FloorPlan {
+List<WallPoint> outline;
+List<FloorPlanItem> items;
+FloorPlan({List<WallPoint>? outline, List<FloorPlanItem>? items})
+: outline = outline ?? [],
+items = items ?? [];
+Map<String, dynamic> toJson() => {
+'outline': outline.map((p) => p.toJson()).toList(),
+'items': items.map((i) => i.toJson()).toList(),
+};
+factory FloorPlan.fromJson(Map<String, dynamic> j) => FloorPlan(
+outline: (j['outline'] as List).map((x) => WallPoint.fromJson(x as Map<String, dynamic>)).toList(),
+items: (j['items'] as List).map((x) => FloorPlanItem.fromJson(x as Map<String, dynamic>)).toList(),
+);
+}
+
 class Room {
 final String id;
 String name;
 double length;
 double width;
 double height;
-Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7});
+FloorPlan? floorPlan;
+Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7, this.floorPlan});
 double get area => length * width;
-Map<String, dynamic> toJson() => {'id': id, 'name': name, 'length': length, 'width': width, 'height': height};
+Map<String, dynamic> toJson() => {
+'id': id,
+'name': name,
+'length': length,
+'width': width,
+'height': height,
+if (floorPlan != null) 'floorPlan': floorPlan!.toJson(),
+};
 factory Room.fromJson(Map<String, dynamic> j) => Room(
 id: j['id'] as String,
 name: j['name'] as String,
 length: (j['length'] as num).toDouble(),
 width: (j['width'] as num).toDouble(),
 height: (j['height'] as num).toDouble(),
+floorPlan: j['floorPlan'] != null ? FloorPlan.fromJson(j['floorPlan'] as Map<String, dynamic>) : null,
 );
 }
 
@@ -52,7 +100,6 @@ quantity: (j['quantity'] as num).toDouble(),
 price: (j['price'] as num).toDouble(),
 );
 }
-
 class Attachment {
 final String id;
 String name;
@@ -243,6 +290,13 @@ notifyListeners();
 _persist();
 }
 
+void saveRoomFloorPlan(String roomId, FloorPlan plan) {
+final room = activeProject.rooms.firstWhere((r) => r.id == roomId);
+room.floorPlan = plan;
+notifyListeners();
+_persist();
+}
+
 void addPriceItem(String name, String unit, double price) {
 priceList.add(PriceItem(id: _nextId(), name: name, unit: unit, price: price));
 notifyListeners();
@@ -255,9 +309,6 @@ notifyListeners();
 _persist();
 }
 
-/// Импортирует прайс-лист из CSV-текста. Ожидается по одной позиции на
-/// строке в формате "название,единица,цена" (запятая или точка с запятой).
-/// Существующий прайс-лист заменяется целиком.
 int importPriceListCsv(String csvText) {
 final lines = csvText.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty);
 final imported = <PriceItem>[];
@@ -279,7 +330,6 @@ _persist();
 }
 return imported.length;
 }
-
 void addEstimateItem(String name, String unit, double quantity, double price) {
 activeProject.estimateItems.add(EstimateItem(id: _nextId(), name: name, unit: unit, quantity: quantity, price: price));
 notifyListeners();
@@ -323,7 +373,7 @@ activeProject.chatMessages.clear();
 notifyListeners();
 _persist();
 }
-// --- Шаблоны смет ---
+
 void saveCurrentAsTemplate(String name) {
 final items = activeProject.estimateItems
 .map((e) => TemplateItem(name: e.name, unit: e.unit, quantity: e.quantity, price: e.price))
@@ -354,7 +404,6 @@ notifyListeners();
 _persist();
 }
 
-// --- Резервная копия ---
 String exportBackupJson() {
 final data = {
 'seq': _seq,
