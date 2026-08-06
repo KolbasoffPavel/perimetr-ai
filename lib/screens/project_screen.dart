@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
 import 'room_photo_measure_screen.dart';
+import 'floor_plan_screen.dart';
 
 class ProjectScreen extends StatelessWidget {
 const ProjectScreen({super.key});
@@ -61,7 +62,6 @@ if (result != null && context.mounted) {
 _addRoom(context, appState, prefill: result);
 }
 }
-
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -103,7 +103,10 @@ child: Text('Помещений пока нет — добавьте перво�
 )
 else
 ...rooms.map((room) => BentoCard(
-child: Row(
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Row(
 children: [
 Expanded(
 child: Column(
@@ -121,6 +124,18 @@ style: TextStyle(color: c.secondaryLabel, fontSize: 13),
 IconButton(
 icon: Icon(Icons.delete_outline, color: c.destructive, size: 20),
 onPressed: () => appState.removeRoom(room.id),
+),
+],
+),
+Align(
+alignment: Alignment.centerLeft,
+child: TextButton.icon(
+onPressed: () => Navigator.of(context).push(
+MaterialPageRoute(builder: (_) => FloorPlanScreen(room: room)),
+),
+icon: Icon(room.floorPlan != null ? Icons.map : Icons.add_location_alt, size: 18),
+label: Text(room.floorPlan != null ? 'Открыть план' : 'Создать план'),
+),
 ),
 ],
 ),
