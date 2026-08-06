@@ -45,29 +45,43 @@ class AiService {
   }
 
   Future<String> analyzeImage(String base64Image, String mediaType, String prompt) async {
+    return analyzeImages([(base64Image, mediaType)], prompt);
+  }
+
+  /// То же самое, но можно передать сразу несколько фото одного помещения
+  /// (например, из разных углов) — это заметно повышает точность оценки
+  /// формы и размеров по сравнению с одним снимком.
+  Future<String> analyzeImages(List<(String, String)> images, String prompt) async {
+    final content = <Map<String, dynamic>>[
+      for (final img in images)
+        {
+          'type': 'image',
+          'source': {'type': 'base64', 'media_type': img.$2, 'data': img.$1},
+        },
+      {'type': 'text', 'text': prompt},
+    ];
     final messages = [
-      {
-        'role': 'user',
-        'content': [
-          {
-            'type': 'image',
-            'source': {'type': 'base64', 'media_type': mediaType, 'data': base64Image},
-          },
-          {'type': 'text', 'text': prompt},
-        ],
-      }
+      {'role': 'user', 'content': content}
     ];
     return _send(messages);
   }
-
   Future<Map<String, dynamic>> estimateRoomDimensions(String base64Image, String mediaType) async {
-    final raw = await analyzeImage(
-      base64Image,
-      mediaType,
-      'Оцени примерные размеры помещения на фото в метрах, ориентируясь на '
-      'стандартные объекты (высота дверного проёма ~2 м, розетка ~0.3 м от '
-      'пола и т.п.). Ответь СТРОГО в формате JSON без markdown-разметки и '
-      'пояснений, только одна строка: {"length": число, "width": число, "height": число}',
+    return estimateRoomDimensionsMulti([(base64Image, mediaType)]);
+  }
+
+  /// Оценивает размеры помещения по одному или нескольким фото (в метрах),
+  /// опираясь на стандартные ориентиры (высота дверного проёма ~2 м,
+  /// розетка ~0.3 м от пола и т.п.). Несколько фото из разных углов
+  /// помещения дают заметно более точный результат, чем один снимок.
+  Future<Map<String, dynamic>> estimateRoomDimensionsMulti(List<(String, String)> images) async {
+    final raw = await analyzeImages(
+      images,
+      'На фото ${images.length == 1 ? "одно помещение" : "одно и то же помещение с ${images.length} разных ракурсов"}. '
+      'Оцени примерные размеры помещения в метрах, ориентируясь на стандартные объекты '
+      '(высота дверного проёма ~2 м, розетка ~0.3 м от пола и т.п.). Если снимков несколько — '
+      'сопоставь их между собой для более точной оценки формы и размеров помещения. '
+      'Ответь СТРОГО в формате JSON без markdown-разметки и пояснений, только одна строка: '
+      '{"length": число, "width": число, "height": число}',
     );
     final jsonStr = raw.replaceAll(RegExp(r'```json|```'), '').trim();
     return jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -87,6 +101,7 @@ class AiService {
     }
     return response.bodyBytes;
   }
+
   Future<String> createEstimateShareLink({
     required String projectName,
     required List<Map<String, dynamic>> items,
