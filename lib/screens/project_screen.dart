@@ -7,6 +7,7 @@ import '../widgets/bento_card.dart';
 import 'room_photo_measure_screen.dart';
 import 'floor_plan_screen.dart';
 import 'ar_ruler_screen.dart';
+import 'panorama_screen.dart';
 
 class ProjectScreen extends StatelessWidget {
 const ProjectScreen({super.key});
@@ -135,15 +136,24 @@ onPressed: () => appState.removeRoom(room.id),
 ),
 ],
 ),
-Align(
-alignment: Alignment.centerLeft,
-child: TextButton.icon(
+Wrap(
+spacing: 4,
+children: [
+TextButton.icon(
 onPressed: () => Navigator.of(context).push(
 MaterialPageRoute(builder: (_) => FloorPlanScreen(room: room)),
 ),
 icon: Icon(room.floorPlan != null ? Icons.map : Icons.add_location_alt, size: 18),
-label: Text(room.floorPlan != null ? 'Открыть план' : 'Создать план'),
+label: Text(room.floorPlan != null ? 'План' : 'План'),
 ),
+TextButton.icon(
+onPressed: () => Navigator.of(context).push(
+MaterialPageRoute(builder: (_) => PanoramaScreen(room: room)),
+),
+icon: Icon(room.panoramaPath != null ? Icons.threesixty : Icons.panorama_photosphere, size: 18),
+label: const Text('Панорама'),
+),
+],
 ),
 ],
 ),
