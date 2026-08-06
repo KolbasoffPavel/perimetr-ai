@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -5,8 +7,14 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
 
-class PricesScreen extends StatelessWidget {
+class PricesScreen extends StatefulWidget {
 const PricesScreen({super.key});
+@override
+State<PricesScreen> createState() => _PricesScreenState();
+}
+
+class _PricesScreenState extends State<PricesScreen> {
+bool _importing = false;
 
 void _addPrice(BuildContext context, AppState appState) {
 final nameCtrl = TextEditingController();
@@ -48,6 +56,46 @@ child: const Text('Добавить'),
 );
 }
 
+Future<void> _importCsv(AppState appState) async {
+final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
+if (result == null || result.files.single.path == null) return;
+setState(() => _importing = true);
+try {
+final file = File(result.files.single.path!);
+final text = await file.readAsString();
+final count = appState.importPriceListCsv(text);
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(content: Text(count > 0 ? 'Импортировано позиций: $count' : 'Не удалось распознать ни одной позиции в файле')),
+);
+}
+} catch (e) {
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка импорта: $e')));
+}
+} finally {
+if (mounted) setState(() => _importing = false);
+}
+}
+
+void _showImportInfo(BuildContext context) {
+showCupertinoDialog(
+context: context,
+builder: (ctx) => CupertinoAlertDialog(
+title: const Text('Формат файла'),
+content: const Padding(
+padding: EdgeInsets.only(top: 8),
+child: Text(
+'CSV или текстовый файл, одна позиция на строке:\n'
+'Название,Единица,Цена\n\n'
+'Например:\nПоклейка обоев,м²,350\nУкладка плитки,м²,900\n\n'
+'Загрузка заменит текущий прайс-лист целиком.',
+),
+),
+actions: [CupertinoDialogAction(onPressed: () => Navigator.pop(ctx), child: const Text('Понятно'))],
+),
+);
+}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -64,9 +112,24 @@ Row(
 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 children: [
 Text('Цены', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.label)),
+Row(
+children: [
+IconButton(
+icon: Icon(Icons.help_outline, color: c.secondaryLabel, size: 22),
+onPressed: () => _showImportInfo(context),
+),
+IconButton(
+icon: _importing
+? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: c.accent))
+: Icon(Icons.upload_file, color: c.accent, size: 24),
+tooltip: 'Загрузить свой прайс-лист',
+onPressed: _importing ? null : () => _importCsv(appState),
+),
 IconButton(
 icon: Icon(Icons.add_circle, color: c.accent, size: 28),
 onPressed: () => _addPrice(context, appState),
+),
+],
 ),
 ],
 ),
@@ -74,7 +137,7 @@ const SizedBox(height: 8),
 if (prices.isEmpty)
 Padding(
 padding: const EdgeInsets.symmetric(vertical: 40),
-child: Center(child: Text('Прайс-лист пуст — добавьте позиции', style: TextStyle(color: c.secondaryLabel))),
+child: Center(child: Text('Прайс-лист пуст — добавьте позиции или загрузите файл', style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center)),
 )
 else
 ...prices.map((item) => BentoCard(
