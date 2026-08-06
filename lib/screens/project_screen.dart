@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
 import 'room_photo_measure_screen.dart';
 import 'floor_plan_screen.dart';
+import 'ar_ruler_screen.dart';
 
 class ProjectScreen extends StatelessWidget {
 const ProjectScreen({super.key});
@@ -80,6 +81,13 @@ children: [
 Text('Замеры', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.label)),
 Row(
 children: [
+IconButton(
+icon: Icon(Icons.straighten, color: c.accent, size: 24),
+tooltip: 'AR-линейка (экспериментально)',
+onPressed: () => Navigator.of(context).push(
+MaterialPageRoute(builder: (_) => const ArRulerScreen()),
+),
+),
 IconButton(
 icon: Icon(Icons.camera_alt, color: c.accent, size: 24),
 tooltip: 'Определить размеры по фото',
