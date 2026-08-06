@@ -215,7 +215,7 @@ final linePaint = Paint()
 ..color = color
 ..strokeWidth = 3
 ..style = PaintingStyle.stroke;
-final fillPaint = Paint()..color = color.withValues(alpha: 0.12);
+final fillPaint = Paint()..color = color.withOpacity(0.12);
 final path = Path()..moveTo(outline.first.dx, outline.first.dy);
 for (final p in outline.skip(1)) {
 path.lineTo(p.dx, p.dy);
