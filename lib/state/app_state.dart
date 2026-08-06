@@ -67,15 +67,18 @@ path: j['path'] as String,
 }
 
 class ChatMessage {
+final String id;
 final String role;
 final String text;
-ChatMessage({required this.role, required this.text});
-Map<String, dynamic> toJson() => {'role': role, 'text': text};
-factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(role: j['role'] as String, text: j['text'] as String);
+ChatMessage({required this.id, required this.role, required this.text});
+Map<String, dynamic> toJson() => {'id': id, 'role': role, 'text': text};
+factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+id: j['id'] as String? ?? '${DateTime.now().microsecondsSinceEpoch}',
+role: j['role'] as String,
+text: j['text'] as String,
+);
 }
 
-/// Позиция внутри сохранённого шаблона сметы (без id — id присваивается
-/// заново при применении шаблона к конкретной смете).
 class TemplateItem {
 String name;
 String unit;
@@ -131,10 +134,6 @@ p.chatMessages.addAll((j['chatMessages'] as List).map((x) => ChatMessage.fromJso
 return p;
 }
 }
-/// Общее состояние приложения: объекты (проекты), их помещения, сметы,
-/// вложения и переписка с ИИ, плюс общий прайс-лист и шаблоны смет.
-/// Автоматически сохраняется на устройство и восстанавливается при
-/// следующем запуске.
 class AppState extends ChangeNotifier {
 bool loaded = false;
 int _seq = 0;
@@ -256,6 +255,31 @@ notifyListeners();
 _persist();
 }
 
+/// Импортирует прайс-лист из CSV-текста. Ожидается по одной позиции на
+/// строке в формате "название,единица,цена" (запятая или точка с запятой).
+/// Существующий прайс-лист заменяется целиком.
+int importPriceListCsv(String csvText) {
+final lines = csvText.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty);
+final imported = <PriceItem>[];
+for (final line in lines) {
+final parts = line.split(RegExp(r'[,;]'));
+if (parts.length < 3) continue;
+final name = parts[0].trim();
+final unit = parts[1].trim();
+final price = double.tryParse(parts[2].trim().replaceAll(',', '.'));
+if (name.isEmpty || price == null) continue;
+imported.add(PriceItem(id: _nextId(), name: name, unit: unit.isEmpty ? 'шт' : unit, price: price));
+}
+if (imported.isNotEmpty) {
+priceList
+..clear()
+..addAll(imported);
+notifyListeners();
+_persist();
+}
+return imported.length;
+}
+
 void addEstimateItem(String name, String unit, double quantity, double price) {
 activeProject.estimateItems.add(EstimateItem(id: _nextId(), name: name, unit: unit, quantity: quantity, price: price));
 notifyListeners();
@@ -283,7 +307,19 @@ _persist();
 }
 
 void addChatMessage(String role, String text) {
-activeProject.chatMessages.add(ChatMessage(role: role, text: text));
+activeProject.chatMessages.add(ChatMessage(id: _nextId(), role: role, text: text));
+notifyListeners();
+_persist();
+}
+
+void removeChatMessage(String id) {
+activeProject.chatMessages.removeWhere((m) => m.id == id);
+notifyListeners();
+_persist();
+}
+
+void clearChat() {
+activeProject.chatMessages.clear();
 notifyListeners();
 _persist();
 }
