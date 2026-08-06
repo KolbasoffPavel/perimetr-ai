@@ -13,6 +13,23 @@ class AiService {
   static const _model = 'claude-sonnet-4-5-20250929';
 
   Future<String> _send(List<Map<String, dynamic>> messages) async {
+    final data = await chatRaw(messages);
+    final content = data['content'] as List;
+    final buffer = StringBuffer();
+    for (final block in content) {
+      if (block['type'] == 'text') buffer.write(block['text']);
+    }
+    return buffer.toString();
+  }
+
+  ///低-уровневый вызов Claude, возвращает сырой ответ API (со всеми
+  /// content-блоками, включая tool_use) — нужен, когда ИИ должен уметь
+  /// вызывать функции приложения, а не просто отвечать текстом.
+  Future<Map<String, dynamic>> chatRaw(
+    List<Map<String, dynamic>> messages, {
+    List<Map<String, dynamic>>? tools,
+    String? system,
+  }) async {
     final response = await http.post(
       Uri.parse(_proxyEndpoint),
       headers: {
@@ -23,18 +40,14 @@ class AiService {
         'model': _model,
         'max_tokens': 1024,
         'messages': messages,
+        if (system != null) 'system': system,
+        if (tools != null) 'tools': tools,
       }),
     );
     if (response.statusCode != 200) {
       throw Exception('Ошибка сервера (${response.statusCode}): ${response.body}');
     }
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
-    final content = data['content'] as List;
-    final buffer = StringBuffer();
-    for (final block in content) {
-      if (block['type'] == 'text') buffer.write(block['text']);
-    }
-    return buffer.toString();
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
   }
 
   Future<String> chat(List<Map<String, String>> history) async {
@@ -69,10 +82,6 @@ class AiService {
     return estimateRoomDimensionsMulti([(base64Image, mediaType)]);
   }
 
-  /// Оценивает размеры помещения по одному или нескольким фото (в метрах),
-  /// опираясь на стандартные ориентиры (высота дверного проёма ~2 м,
-  /// розетка ~0.3 м от пола и т.п.). Несколько фото из разных углов
-  /// помещения дают заметно более точный результат, чем один снимок.
   Future<Map<String, dynamic>> estimateRoomDimensionsMulti(List<(String, String)> images) async {
     final raw = await analyzeImages(
       images,
