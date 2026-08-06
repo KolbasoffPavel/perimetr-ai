@@ -28,9 +28,15 @@ _initialized = true;
 
 /// Загружает подписку по ссылке и разбирает её на список серверов.
 /// Подписки обычно закодированы в base64 и содержат по одной ссылке
-/// (vmess://, vless://, trojan://, ss://) на строку.
+/// (vmess://, vless://, trojan://, ss://) на строку. Многие панели
+/// подписок (Marzban и подобные) отдают реальный список серверов только
+/// известным VPN-клиентам, определяя их по заголовку User-Agent —
+/// поэтому представляемся как v2rayNG.
 static Future<List<VpnServer>> fetchSubscription(String url) async {
-final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
+final response = await http.get(
+Uri.parse(url),
+headers: {'User-Agent': 'v2rayNG/1.8.29'},
+).timeout(const Duration(seconds: 15));
 if (response.statusCode != 200) {
 throw Exception('Не удалось загрузить подписку (${response.statusCode})');
 }
