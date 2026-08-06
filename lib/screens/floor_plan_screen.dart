@@ -1,11 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 
 /// Простой 2D-редактор планировки помещения: сначала контур комнаты
 /// (нажатия по холсту ставят точки стен), затем расстановка мебели
 /// перетаскиванием иконок. Сохраняется как часть данных помещения.
+/// Экспортируется в DXF для открытия в настоящем CAD-редакторе.
 class FloorPlanScreen extends StatefulWidget {
 final Room room;
 const FloorPlanScreen({super.key, required this.room});
@@ -85,6 +89,37 @@ items: _items.map((i) => FloorPlanItem(id: i.id, type: i.type, x: i.x / _canvasS
 appState.saveRoomFloorPlan(widget.room.id, plan);
 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('План сохранён')));
 }
+
+Future<void> _exportDxf(BuildContext context) async {
+if (_outline.length < 2) {
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(content: Text('Сначала нарисуйте контур помещения')),
+);
+return;
+}
+final scaleX = widget.room.length > 0 ? widget.room.length : 5.0;
+final scaleY = widget.room.width > 0 ? widget.room.width : 5.0;
+final points = _outline
+.map((o) => Offset((o.dx / _canvasSize) * scaleX, (1 - o.dy / _canvasSize) * scaleY))
+.toList();
+
+final buffer = StringBuffer();
+buffer.write('0\nSECTION\n2\nENTITIES\n');
+for (var i = 0; i < points.length; i++) {
+final a = points[i];
+final b = points[(i + 1) % points.length];
+buffer.write('0\nLINE\n8\n0\n');
+buffer.write('10\n${a.dx.toStringAsFixed(3)}\n20\n${a.dy.toStringAsFixed(3)}\n30\n0.0\n');
+buffer.write('11\n${b.dx.toStringAsFixed(3)}\n21\n${b.dy.toStringAsFixed(3)}\n31\n0.0\n');
+}
+buffer.write('0\nENDSEC\n0\nEOF\n');
+
+final dir = await getTemporaryDirectory();
+final safeName = widget.room.name.replaceAll(RegExp(r'[^A-Za-zА-Яа-я0-9_-]'), '_');
+final file = File('${dir.path}/plan_$safeName.dxf');
+await file.writeAsString(buffer.toString());
+await Share.shareXFiles([XFile(file.path)], text: 'План помещения: ${widget.room.name} (DXF)');
+}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -94,7 +129,8 @@ backgroundColor: c.background,
 appBar: AppBar(
 title: Text('План: ${widget.room.name}'),
 actions: [
-IconButton(icon: const Icon(Icons.save), onPressed: () => _save(context)),
+IconButton(icon: const Icon(Icons.ios_share), tooltip: 'Экспорт в DXF', onPressed: () => _exportDxf(context)),
+IconButton(icon: const Icon(Icons.save), tooltip: 'Сохранить', onPressed: () => _save(context)),
 ],
 ),
 body: SafeArea(
