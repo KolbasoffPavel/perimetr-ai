@@ -91,6 +91,25 @@ setState(() => _sending = false);
 }
 }
 
+void _confirmClearChat(AppState appState) {
+showDialog(
+context: context,
+builder: (ctx) => AlertDialog(
+title: const Text('Очистить переписку?'),
+content: const Text('Все сообщения этого объекта будут удалены без возможности восстановления.'),
+actions: [
+TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+TextButton(
+onPressed: () {
+appState.clearChat();
+Navigator.pop(ctx);
+},
+child: const Text('Очистить'),
+),
+],
+),
+);
+}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -106,6 +125,12 @@ IconButton(
 icon: Icon(_speakReplies ? Icons.volume_up : Icons.volume_off, color: c.label),
 tooltip: 'Озвучивать ответы',
 onPressed: () => setState(() => _speakReplies = !_speakReplies),
+),
+if (messages.isNotEmpty)
+IconButton(
+icon: Icon(Icons.delete_sweep, color: c.label),
+tooltip: 'Очистить переписку',
+onPressed: () => _confirmClearChat(appState),
 ),
 ],
 ),
@@ -126,17 +151,30 @@ itemCount: messages.length,
 itemBuilder: (context, i) {
 final m = messages[i];
 final isUser = m.role == 'user';
-return Align(
-alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+final bubble = Flexible(
 child: Container(
-margin: const EdgeInsets.only(bottom: 10),
 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
 decoration: BoxDecoration(
 color: isUser ? c.accent : c.cardBackground,
 borderRadius: BorderRadius.circular(16),
 ),
 child: Text(m.text, style: TextStyle(color: isUser ? Colors.white : c.label)),
+),
+);
+final deleteBtn = GestureDetector(
+onTap: () => appState.removeChatMessage(m.id),
+child: Padding(
+padding: const EdgeInsets.symmetric(horizontal: 4),
+child: Icon(Icons.close, size: 16, color: c.tertiaryLabel),
+),
+);
+return Padding(
+padding: const EdgeInsets.only(bottom: 10),
+child: Row(
+mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+crossAxisAlignment: CrossAxisAlignment.start,
+children: isUser ? [deleteBtn, bubble] : [bubble, deleteBtn],
 ),
 );
 },
