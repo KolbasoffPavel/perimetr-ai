@@ -166,6 +166,14 @@ appState.addAttachment(file.name, file.path!);
 }
 }
 }
+
+Future<void> _openAttachment(String path, String name) async {
+try {
+await Share.shareXFiles([XFile(path)], text: name);
+} catch (_) {
+// Файл мог быть удалён из системы — молча игнорируем.
+}
+}
 Future<void> _exportPdf(BuildContext context, AppState appState) async {
 final project = appState.activeProject;
 final regularFont = await PdfGoogleFonts.interRegular();
@@ -258,7 +266,6 @@ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
 if (mounted) setState(() => _sharingLink = false);
 }
 }
-
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -339,14 +346,16 @@ Text('${appState.estimateTotal.toStringAsFixed(0)} ₽', style: TextStyle(fontSi
 ],
 const SizedBox(height: 8),
 BentoCard(
-title: 'Вложения',
+title: 'Вложения (в т.ч. PDF)',
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
 if (attachments.isEmpty)
 Text('Файлы не загружены', style: TextStyle(color: c.secondaryLabel, fontSize: 13))
 else
-...attachments.map((a) => Padding(
+...attachments.map((a) => InkWell(
+onTap: () => _openAttachment(a.path, a.name),
+child: Padding(
 padding: const EdgeInsets.symmetric(vertical: 4),
 child: Row(
 children: [
@@ -359,12 +368,13 @@ onPressed: () => appState.removeAttachment(a.id),
 ),
 ],
 ),
+),
 )),
 const SizedBox(height: 8),
 OutlinedButton.icon(
 onPressed: () => _uploadFile(context, appState),
 icon: const Icon(Icons.upload_file),
-label: const Text('Загрузить файл'),
+label: const Text('Загрузить файл (PDF, фото и др.)'),
 ),
 ],
 ),
