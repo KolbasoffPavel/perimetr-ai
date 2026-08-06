@@ -48,7 +48,8 @@ double length;
 double width;
 double height;
 FloorPlan? floorPlan;
-Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7, this.floorPlan});
+String? panoramaPath;
+Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7, this.floorPlan, this.panoramaPath});
 double get area => length * width;
 Map<String, dynamic> toJson() => {
 'id': id,
@@ -57,6 +58,7 @@ Map<String, dynamic> toJson() => {
 'width': width,
 'height': height,
 if (floorPlan != null) 'floorPlan': floorPlan!.toJson(),
+if (panoramaPath != null) 'panoramaPath': panoramaPath,
 };
 factory Room.fromJson(Map<String, dynamic> j) => Room(
 id: j['id'] as String,
@@ -65,6 +67,7 @@ length: (j['length'] as num).toDouble(),
 width: (j['width'] as num).toDouble(),
 height: (j['height'] as num).toDouble(),
 floorPlan: j['floorPlan'] != null ? FloorPlan.fromJson(j['floorPlan'] as Map<String, dynamic>) : null,
+panoramaPath: j['panoramaPath'] as String?,
 );
 }
 
@@ -293,6 +296,13 @@ _persist();
 void saveRoomFloorPlan(String roomId, FloorPlan plan) {
 final room = activeProject.rooms.firstWhere((r) => r.id == roomId);
 room.floorPlan = plan;
+notifyListeners();
+_persist();
+}
+
+void saveRoomPanorama(String roomId, String path) {
+final room = activeProject.rooms.firstWhere((r) => r.id == roomId);
+room.panoramaPath = path;
 notifyListeners();
 _persist();
 }
