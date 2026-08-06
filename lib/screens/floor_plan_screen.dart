@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
+import '../widgets/bento_card.dart';
 
 /// Простой 2D-редактор планировки помещения: сначала контур комнаты
 /// (нажатия по холсту ставят точки стен), затем расстановка мебели
