@@ -1,10 +1,22 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import '../state/app_state.dart';
 import '../services/ai_service.dart';
+import '../services/ai_tools.dart';
 import '../theme/app_colors.dart';
+
+class _PendingAttachment {
+final String path;
+final String name;
+final String base64;
+final String mediaType;
+_PendingAttachment({required this.path, required this.name, required this.base64, required this.mediaType});
+}
 
 class AiChatScreen extends StatefulWidget {
 const AiChatScreen({super.key});
@@ -20,6 +32,7 @@ bool _sending = false;
 bool _listening = false;
 bool _speakReplies = false;
 String? _error;
+_PendingAttachment? _attachment;
 
 @override
 void initState() {
@@ -62,26 +75,89 @@ setState(() => _listening = false);
 );
 }
 
+Future<void> _pickAttachment() async {
+final result = await FilePicker.platform.pickFiles(type: FileType.image);
+if (result == null || result.files.single.path == null) return;
+final path = result.files.single.path!;
+final name = result.files.single.name;
+final bytes = await File(path).readAsBytes();
+final ext = name.toLowerCase().split('.').last;
+final mediaType = switch (ext) {
+'png' => 'image/png',
+'webp' => 'image/webp',
+'gif' => 'image/gif',
+_ => 'image/jpeg',
+};
+setState(() {
+_attachment = _PendingAttachment(path: path, name: name, base64: base64Encode(bytes), mediaType: mediaType);
+});
+}
+
+void _removeAttachment() => setState(() => _attachment = null);
 Future<void> _send(AppState appState) async {
 final text = _controller.text.trim();
-if (text.isEmpty || _sending) return;
+if ((text.isEmpty && _attachment == null) || _sending) return;
 if (_listening) {
 await _speech.stop();
 setState(() => _listening = false);
 }
+final attachment = _attachment;
 setState(() {
 _sending = true;
 _error = null;
 });
-appState.addChatMessage('user', text);
+
+final displayText = attachment != null
+? (text.isEmpty ? '[Фото: ${attachment.name}]' : '$text\n[Фото: ${attachment.name}]')
+: text;
+appState.addChatMessage('user', displayText);
 _controller.clear();
+setState(() => _attachment = null);
+
 try {
 final history = appState.activeProject.chatMessages
-.map((m) => {'role': m.role, 'text': m.text})
+.map((m) => <String, dynamic>{'role': m.role, 'content': m.text})
 .toList();
-final reply = await AiService().chat(history);
-appState.addChatMessage('assistant', reply);
-if (_speakReplies) {
+
+if (attachment != null) {
+history[history.length - 1] = {
+'role': 'user',
+'content': [
+{
+'type': 'image',
+'source': {'type': 'base64', 'media_type': attachment.mediaType, 'data': attachment.base64},
+},
+{'type': 'text', 'text': text.isEmpty ? 'Проанализируй это изображение' : text},
+],
+};
+}
+
+var response = await AiService().chatRaw(history, tools: assistantTools, system: assistantSystemPrompt);
+var content = response['content'] as List;
+final toolUses = content.where((b) => b['type'] == 'tool_use').toList();
+
+if (toolUses.isNotEmpty) {
+final toolResults = <Map<String, dynamic>>[];
+for (final tu in toolUses) {
+final result = executeAssistantTool(tu['name'] as String, (tu['input'] as Map).cast<String, dynamic>(), appState);
+toolResults.add({'type': 'tool_result', 'tool_use_id': tu['id'], 'content': jsonEncode(result)});
+}
+final followUp = [
+...history,
+{'role': 'assistant', 'content': content},
+{'role': 'user', 'content': toolResults},
+];
+response = await AiService().chatRaw(followUp, tools: assistantTools, system: assistantSystemPrompt);
+content = response['content'] as List;
+}
+
+final buffer = StringBuffer();
+for (final block in content) {
+if (block['type'] == 'text') buffer.write(block['text']);
+}
+final reply = buffer.toString();
+appState.addChatMessage('assistant', reply.isEmpty ? 'Готово.' : reply);
+if (_speakReplies && reply.isNotEmpty) {
 await _tts.speak(reply);
 }
 } catch (e) {
@@ -141,8 +217,11 @@ child: messages.isEmpty
 ? Center(
 child: Padding(
 padding: const EdgeInsets.all(24),
-child: Text('Задайте вопрос по ремонту — ИИ поможет с советом',
-style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center),
+child: Text(
+'Задайте вопрос по ремонту, приложите фото или попросите добавить помещение/позицию в смету — ИИ умеет менять данные проекта сам',
+style: TextStyle(color: c.secondaryLabel),
+textAlign: TextAlign.center,
+),
 ),
 )
 : ListView.builder(
@@ -180,6 +259,18 @@ children: isUser ? [deleteBtn, bubble] : [bubble, deleteBtn],
 },
 ),
 ),
+if (_attachment != null)
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 16),
+child: Align(
+alignment: Alignment.centerLeft,
+child: Chip(
+avatar: const Icon(Icons.image, size: 18),
+label: Text(_attachment!.name, overflow: TextOverflow.ellipsis),
+onDeleted: _removeAttachment,
+),
+),
+),
 if (_error != null)
 Padding(
 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -191,6 +282,11 @@ child: Padding(
 padding: const EdgeInsets.all(12),
 child: Row(
 children: [
+IconButton(
+icon: Icon(Icons.add_circle_outline, color: c.accent),
+tooltip: 'Прикрепить фото',
+onPressed: _sending ? null : _pickAttachment,
+),
 IconButton(
 icon: Icon(_listening ? Icons.mic : Icons.mic_none, color: _listening ? c.destructive : c.accent),
 onPressed: _toggleListening,
