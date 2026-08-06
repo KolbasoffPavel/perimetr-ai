@@ -26,9 +26,9 @@ super.initState();
 _capturing = widget.room.panoramaPath == null;
 }
 
-void _onSuccess(String panoramaPath) {
+dynamic _onSuccess(dynamic panoramaPath) {
 final appState = context.read<AppState>();
-appState.saveRoomPanorama(widget.room.id, panoramaPath);
+appState.saveRoomPanorama(widget.room.id, panoramaPath as String);
 setState(() {
 _capturing = false;
 _error = null;
