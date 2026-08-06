@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/theme_controller.dart';
 import '../widgets/bento_card.dart';
+import 'vpn_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
 const SettingsScreen({super.key});
@@ -152,13 +153,32 @@ style: TextStyle(fontSize: 12, color: c.secondaryLabel),
 ),
 ),
 BentoCard(
+title: 'VPN',
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Text(
+'Если сеть блокирует доступ к серверу приложения — можно поднять встроенный VPN '
+'по ссылке-подписке, без стороннего VPN-приложения.',
+style: TextStyle(fontSize: 12, color: c.secondaryLabel),
+),
+const SizedBox(height: 12),
+OutlinedButton.icon(
+onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VpnScreen())),
+icon: const Icon(Icons.vpn_lock),
+label: const Text('Открыть настройки VPN'),
+),
+],
+),
+),
+BentoCard(
 title: 'Резервная копия',
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
 Text(
-'Все объекты, замеры, сметы и шаблоны хранятся только на этом устройстве. '
-'Сохраните копию перед переустановкой или сменой телефона.',
+'Все объекты, замеры, сметы и переписка хранятся только на этом устройстве. '
+'Сохраните копию перед сменой телефона или переустановкой.',
 style: TextStyle(fontSize: 12, color: c.secondaryLabel),
 ),
 const SizedBox(height: 12),
@@ -168,7 +188,7 @@ Expanded(
 child: OutlinedButton.icon(
 onPressed: _exportingBackup ? null : _exportBackup,
 icon: const Icon(Icons.upload),
-label: Text(_exportingBackup ? 'Экспорт...' : 'Экспорт'),
+label: Text(_exportingBackup ? 'Экспорт...' : 'Экспортировать'),
 ),
 ),
 const SizedBox(width: 12),
@@ -176,7 +196,7 @@ Expanded(
 child: OutlinedButton.icon(
 onPressed: _importingBackup ? null : _importBackup,
 icon: const Icon(Icons.download),
-label: Text(_importingBackup ? 'Импорт...' : 'Импорт'),
+label: Text(_importingBackup ? 'Импорт...' : 'Восстановить'),
 ),
 ),
 ],
