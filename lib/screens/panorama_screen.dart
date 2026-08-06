@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:panorama_creator/panorama_creator.dart';
+import 'package:flutter_panorama/flutter_panorama.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
