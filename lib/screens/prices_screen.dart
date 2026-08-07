@@ -116,6 +116,13 @@ Text('Цены', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, col
 Row(
 children: [
 IconButton(
+icon: Icon(Icons.calculate_outlined, color: c.accent, size: 24),
+tooltip: 'Калькулятор материалов',
+onPressed: () => Navigator.of(context).push(
+MaterialPageRoute(builder: (_) => const MaterialCalculatorScreen()),
+),
+),
+IconButton(
 icon: Icon(Icons.help_outline, color: c.secondaryLabel, size: 22),
 onPressed: () => _showImportInfo(context),
 ),
