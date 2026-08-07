@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import 'material_calculator_screen.dart';
 
 class PricesScreen extends StatefulWidget {
 const PricesScreen({super.key});
