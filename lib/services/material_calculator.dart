@@ -35,7 +35,7 @@ quantity: rolls,
 unit: 'рулон',
 explanation:
 'Площадь стен ${wallArea(length, width, height).toStringAsFixed(1)} м² + запас ${wastePercent.toStringAsFixed(0)}% '
-'= ${area.toStringAsFixed(1)} м², рулон ${rollWidth}×${rollLength} м даёt ${areaPerRoll.toStringAsFixed(1)} м²',
+'= ${area.toStringAsFixed(1)} м², рулон ${rollWidth}×${rollLength} м даёт ${areaPerRoll.toStringAsFixed(1)} м²',
 );
 }
 
