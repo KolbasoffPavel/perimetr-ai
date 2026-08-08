@@ -352,6 +352,16 @@ notifyListeners();
 _persist();
 }
 
+void updateEstimateItem(String id, {String? name, String? unit, double? quantity, double? price}) {
+final item = activeProject.estimateItems.firstWhere((e) => e.id == id);
+if (name != null) item.name = name;
+if (unit != null) item.unit = unit;
+if (quantity != null) item.quantity = quantity;
+if (price != null) item.price = price;
+notifyListeners();
+_persist();
+}
+
 double get estimateTotal => activeProject.estimateItems.fold(0.0, (s, i) => s + i.total);
 
 void addAttachment(String name, String path) {
