@@ -1,3 +1,4 @@
+import 'material_calculator.dart';
 import '../state/app_state.dart';
 
 /// Системный промпт для ИИ-чата: объясняет роль ассистента и когда
@@ -7,11 +8,16 @@ const String assistantSystemPrompt =
     'Если пользователь просит добавить помещение, позицию в прайс-лист или строку в смету — '
     'используй соответствующий инструмент, не проси уточнений без необходимости, разумно '
     'предполагай единицы измерения и количество, если это очевидно из контекста. '
-    'Если пользователь спрашивает про текущее состояние объекта (что уже есть в смете, '
-    'сколько стоит и т.п.) — сначала вызови get_project_info, затем ответь на основе '
-    'полученных данных. Для обычных вопросов о ремонте отвечай текстом как обычно, без '
-    'вызова инструментов. После вызова инструмента обязательно кратко подтверди пользователю, '
-    'что именно было сделано.';
+    'Если пользователь прикладывает PDF проекта — внимательно изучи документ, определи все '
+    'помещения с их размерами (добавь их через add_room, если их ещё нет в проекте), и для '
+    'каждого помещения и каждого явно упомянутого или напрашивающегося вида отделочных работ '
+    '(обои, покраска, напольное покрытие, плитка, штукатурка) вызови calculate_and_add_material — '
+    'он сам посчитает нужное количество материала по формуле и добавит строку в смету. Если в '
+    'документе не указана цена материала — оставь pricePerUnit равным 0, пользователь сможет '
+    'поправить цену вручную в смете. Если пользователь спрашивает про текущее состояние объекта — '
+    'сначала вызови get_project_info, затем ответь на основе полученных данных. Для обычных '
+    'вопросов о ремонте отвечай текстом как обычно, без вызова инструментов. После вызова '
+    'инструментов обязательно кратко подтверди пользователю, что именно было сделано.';
 
 /// Описания инструментов (function calling) для Anthropic API — позволяют
 /// ИИ не просто отвечать текстом, а взаимодействовать с данными проекта.
@@ -45,7 +51,7 @@ final List<Map<String, dynamic>> assistantTools = [
   },
   {
     'name': 'add_estimate_item',
-    'description': 'Добавляет позицию в смету текущего объекта (с количеством).',
+    'description': 'Добавляет позицию в смету текущего объекта (с уже готовым количеством).',
     'input_schema': {
       'type': 'object',
       'properties': {
@@ -55,6 +61,35 @@ final List<Map<String, dynamic>> assistantTools = [
         'price': {'type': 'number', 'description': 'Цена за единицу в рублях'},
       },
       'required': ['name', 'unit', 'quantity', 'price'],
+    },
+  },
+  {
+    'name': 'calculate_and_add_material',
+    'description':
+        'Считает нужное количество отделочного материала по стандартной формуле (площадь помещения '
+        'с учётом типа работ и запаса на подрезку) и сразу добавляет готовую строку в смету. '
+        'Категории: wallpaper (обои), paint (краска), flooring (напольное покрытие), tile (плитка), '
+        'plaster (штукатурка/шпаклёвка).',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'category': {
+          'type': 'string',
+          'enum': ['wallpaper', 'paint', 'flooring', 'tile', 'plaster'],
+        },
+        'itemName': {'type': 'string', 'description': 'Название строки в смете, например "Обои — Кухня"'},
+        'length': {'type': 'number', 'description': 'Длина помещения, м'},
+        'width': {'type': 'number', 'description': 'Ширина помещения, м'},
+        'height': {'type': 'number', 'description': 'Высота помещения, м (не нужна для flooring и tile)'},
+        'wastePercent': {'type': 'number', 'description': 'Запас на подрезку, %, по умолчанию 10'},
+        'rollWidth': {'type': 'number', 'description': 'Для wallpaper: ширина рулона, м, по умолчанию 1.06'},
+        'rollLength': {'type': 'number', 'description': 'Для wallpaper: длина рулона, м, по умолчанию 10'},
+        'coveragePerLiter': {'type': 'number', 'description': 'Для paint: расход, м²/л, по умолчанию 10'},
+        'coats': {'type': 'number', 'description': 'Для paint: количество слоёв, по умолчанию 2'},
+        'kgPerSqm': {'type': 'number', 'description': 'Для plaster: расход, кг/м², по умолчанию 8'},
+        'pricePerUnit': {'type': 'number', 'description': 'Цена за единицу материала, ₽. Если неизвестна — 0.'},
+      },
+      'required': ['category', 'itemName', 'length', 'width'],
     },
   },
   {
@@ -102,6 +137,57 @@ Map<String, dynamic> executeAssistantTool(
           (input['price'] as num).toDouble(),
         );
         return {'success': true, 'message': 'Позиция "$itemName" добавлена в смету'};
+
+      case 'calculate_and_add_material':
+        final category = input['category'] as String;
+        final itemName = input['itemName'] as String;
+        final length = (input['length'] as num).toDouble();
+        final width = (input['width'] as num).toDouble();
+        final height = input['height'] != null ? (input['height'] as num).toDouble() : 2.7;
+        final waste = input['wastePercent'] != null ? (input['wastePercent'] as num).toDouble() : 10.0;
+        final price = input['pricePerUnit'] != null ? (input['pricePerUnit'] as num).toDouble() : 0.0;
+
+        MaterialResult result;
+        switch (category) {
+          case 'wallpaper':
+            result = MaterialCalculator.wallpaper(
+              length: length,
+              width: width,
+              height: height,
+              rollWidth: input['rollWidth'] != null ? (input['rollWidth'] as num).toDouble() : 1.06,
+              rollLength: input['rollLength'] != null ? (input['rollLength'] as num).toDouble() : 10,
+              wastePercent: waste,
+            );
+            break;
+          case 'paint':
+            result = MaterialCalculator.paint(
+              areaToPaint: MaterialCalculator.wallArea(length, width, height),
+              coveragePerLiter: input['coveragePerLiter'] != null ? (input['coveragePerLiter'] as num).toDouble() : 10,
+              coats: input['coats'] != null ? (input['coats'] as num).round() : 2,
+            );
+            break;
+          case 'flooring':
+            result = MaterialCalculator.flooring(length: length, width: width, wastePercent: waste);
+            break;
+          case 'tile':
+            result = MaterialCalculator.tile(area: length * width, wastePercent: waste);
+            break;
+          case 'plaster':
+            result = MaterialCalculator.plaster(
+              area: MaterialCalculator.wallArea(length, width, height),
+              kgPerSqm: input['kgPerSqm'] != null ? (input['kgPerSqm'] as num).toDouble() : 8,
+            );
+            break;
+          default:
+            return {'success': false, 'error': 'Неизвестная категория материала: $category'};
+        }
+
+        appState.addEstimateItem(itemName, result.unit, result.quantity, price);
+        return {
+          'success': true,
+          'message': 'Добавлено в смету: "$itemName" — ${result.quantity} ${result.unit}',
+          'explanation': result.explanation,
+        };
 
       case 'get_project_info':
         final p = appState.activeProject;
