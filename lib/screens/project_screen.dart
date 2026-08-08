@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/voice_mic_button.dart';
 import 'room_photo_measure_screen.dart';
 import 'floor_plan_screen.dart';
 import 'ar_ruler_screen.dart';
@@ -25,7 +26,11 @@ content: Padding(
 padding: const EdgeInsets.only(top: 12),
 child: Column(
 children: [
-CupertinoTextField(controller: nameCtrl, placeholder: 'Название (напр. Гостиная)'),
+CupertinoTextField(
+ controller: nameCtrl,
+ placeholder: 'Название (напр. Гостиная)',
+ suffix: VoiceMicButton(controller: nameCtrl),
+ ),
 const SizedBox(height: 8),
 CupertinoTextField(controller: lengthCtrl, placeholder: 'Длина, м', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
 const SizedBox(height: 8),
