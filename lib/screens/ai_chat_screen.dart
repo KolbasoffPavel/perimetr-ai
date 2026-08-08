@@ -15,7 +15,14 @@ final String path;
 final String name;
 final String base64;
 final String mediaType;
-_PendingAttachment({required this.path, required this.name, required this.base64, required this.mediaType});
+final bool isDocument;
+_PendingAttachment({
+required this.path,
+required this.name,
+required this.base64,
+required this.mediaType,
+required this.isDocument,
+});
 }
 
 class AiChatScreen extends StatefulWidget {
@@ -32,6 +39,7 @@ bool _sending = false;
 bool _listening = false;
 bool _speakReplies = false;
 String? _error;
+String? _statusNote;
 _PendingAttachment? _attachment;
 
 @override
@@ -76,12 +84,27 @@ setState(() => _listening = false);
 }
 
 Future<void> _pickAttachment() async {
-final result = await FilePicker.platform.pickFiles(type: FileType.image);
+final result = await FilePicker.platform.pickFiles(
+type: FileType.custom,
+allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'],
+);
 if (result == null || result.files.single.path == null) return;
 final path = result.files.single.path!;
 final name = result.files.single.name;
 final bytes = await File(path).readAsBytes();
 final ext = name.toLowerCase().split('.').last;
+if (ext == 'pdf') {
+setState(() {
+_attachment = _PendingAttachment(
+path: path,
+name: name,
+base64: base64Encode(bytes),
+mediaType: 'application/pdf',
+isDocument: true,
+);
+});
+return;
+}
 final mediaType = switch (ext) {
 'png' => 'image/png',
 'webp' => 'image/webp',
@@ -89,7 +112,13 @@ final mediaType = switch (ext) {
 _ => 'image/jpeg',
 };
 setState(() {
-_attachment = _PendingAttachment(path: path, name: name, base64: base64Encode(bytes), mediaType: mediaType);
+_attachment = _PendingAttachment(
+path: path,
+name: name,
+base64: base64Encode(bytes),
+mediaType: mediaType,
+isDocument: false,
+);
 });
 }
 
@@ -105,50 +134,59 @@ final attachment = _attachment;
 setState(() {
 _sending = true;
 _error = null;
+_statusNote = attachment != null && attachment.isDocument ? 'Читаю документ...' : null;
 });
 
 final displayText = attachment != null
-? (text.isEmpty ? '[Фото: ${attachment.name}]' : '$text\n[Фото: ${attachment.name}]')
+? (text.isEmpty ? '[Файл: ${attachment.name}]' : '$text\n[Файл: ${attachment.name}]')
 : text;
 appState.addChatMessage('user', displayText);
 _controller.clear();
 setState(() => _attachment = null);
 
 try {
-final history = appState.activeProject.chatMessages
+var messages = appState.activeProject.chatMessages
 .map((m) => <String, dynamic>{'role': m.role, 'content': m.text})
 .toList();
 
 if (attachment != null) {
-history[history.length - 1] = {
+messages[messages.length - 1] = {
 'role': 'user',
 'content': [
 {
-'type': 'image',
+'type': attachment.isDocument ? 'document' : 'image',
 'source': {'type': 'base64', 'media_type': attachment.mediaType, 'data': attachment.base64},
 },
-{'type': 'text', 'text': text.isEmpty ? 'Проанализируй это изображение' : text},
+{
+'type': 'text',
+'text': text.isEmpty
+? (attachment.isDocument ? 'Проанализируй этот документ проекта' : 'Проанализируй это изображение')
+: text,
+},
 ],
 };
 }
 
-var response = await AiService().chatRaw(history, tools: assistantTools, system: assistantSystemPrompt);
-var content = response['content'] as List;
+var iterations = 0;
+List content = [];
+while (iterations < 6) {
+final response = await AiService().chatRaw(messages, tools: assistantTools, system: assistantSystemPrompt);
+content = response['content'] as List;
 final toolUses = content.where((b) => b['type'] == 'tool_use').toList();
+if (toolUses.isEmpty) break;
 
-if (toolUses.isNotEmpty) {
+setState(() => _statusNote = 'Выполняю: ${toolUses.map((t) => t['name']).join(', ')}...');
 final toolResults = <Map<String, dynamic>>[];
 for (final tu in toolUses) {
 final result = executeAssistantTool(tu['name'] as String, (tu['input'] as Map).cast<String, dynamic>(), appState);
 toolResults.add({'type': 'tool_result', 'tool_use_id': tu['id'], 'content': jsonEncode(result)});
 }
-final followUp = [
-...history,
+messages = [
+...messages,
 {'role': 'assistant', 'content': content},
 {'role': 'user', 'content': toolResults},
 ];
-response = await AiService().chatRaw(followUp, tools: assistantTools, system: assistantSystemPrompt);
-content = response['content'] as List;
+iterations++;
 }
 
 final buffer = StringBuffer();
@@ -163,7 +201,10 @@ await _tts.speak(reply);
 } catch (e) {
 setState(() => _error = 'Ошибка: $e');
 } finally {
-setState(() => _sending = false);
+setState(() {
+_sending = false;
+_statusNote = null;
+});
 }
 }
 
@@ -218,7 +259,8 @@ child: messages.isEmpty
 child: Padding(
 padding: const EdgeInsets.all(24),
 child: Text(
-'Задайте вопрос по ремонту, приложите фото или попросите добавить помещение/позицию в смету — ИИ умеет менять данные проекта сам',
+'Задайте вопрос по ремонту, приложите фото или PDF проекта — ИИ прочитает документ, '
+'определит помещения и сам посчитает расход материалов в смету',
 style: TextStyle(color: c.secondaryLabel),
 textAlign: TextAlign.center,
 ),
@@ -265,10 +307,18 @@ padding: const EdgeInsets.symmetric(horizontal: 16),
 child: Align(
 alignment: Alignment.centerLeft,
 child: Chip(
-avatar: const Icon(Icons.image, size: 18),
+avatar: Icon(_attachment!.isDocument ? Icons.picture_as_pdf : Icons.image, size: 18),
 label: Text(_attachment!.name, overflow: TextOverflow.ellipsis),
 onDeleted: _removeAttachment,
 ),
+),
+),
+if (_statusNote != null)
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 16),
+child: Align(
+alignment: Alignment.centerLeft,
+child: Text(_statusNote!, style: TextStyle(color: c.accent, fontSize: 12, fontStyle: FontStyle.italic)),
 ),
 ),
 if (_error != null)
@@ -284,7 +334,7 @@ child: Row(
 children: [
 IconButton(
 icon: Icon(Icons.add_circle_outline, color: c.accent),
-tooltip: 'Прикрепить фото',
+tooltip: 'Прикрепить фото или PDF проекта',
 onPressed: _sending ? null : _pickAttachment,
 ),
 IconButton(
