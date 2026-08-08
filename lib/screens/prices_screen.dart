@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/voice_mic_button.dart';
 import 'material_calculator_screen.dart';
 
 class PricesScreen extends StatefulWidget {
@@ -29,7 +30,11 @@ content: Padding(
 padding: const EdgeInsets.only(top: 12),
 child: Column(
 children: [
-CupertinoTextField(controller: nameCtrl, placeholder: 'Название работы/материала'),
+CupertinoTextField(
+ controller: nameCtrl,
+ placeholder: 'Название работы/материала',
+ suffix: VoiceMicButton(controller: nameCtrl),
+ ),
 const SizedBox(height: 8),
 CupertinoTextField(controller: unitCtrl, placeholder: 'Ед. измерения (м², шт, м.п.)'),
 const SizedBox(height: 8),
