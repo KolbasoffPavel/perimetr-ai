@@ -13,6 +13,7 @@ import '../services/bitrix24_service.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/voice_mic_button.dart';
 
 class EstimateScreen extends StatefulWidget {
 const EstimateScreen({super.key});
@@ -26,19 +27,31 @@ bool _pushingToBitrix = false;
 bool _sharingLink = false;
 
 void _addItem(BuildContext context, AppState appState) {
-final nameCtrl = TextEditingController();
-final unitCtrl = TextEditingController(text: 'шт');
-final qtyCtrl = TextEditingController(text: '1');
-final priceCtrl = TextEditingController();
+_itemDialog(context, appState);
+}
+
+void _editItem(BuildContext context, AppState appState, EstimateItem item) {
+_itemDialog(context, appState, existing: item);
+}
+
+void _itemDialog(BuildContext context, AppState appState, {EstimateItem? existing}) {
+final nameCtrl = TextEditingController(text: existing?.name ?? '');
+final unitCtrl = TextEditingController(text: existing?.unit ?? 'шт');
+final qtyCtrl = TextEditingController(text: existing != null ? existing.quantity.toString() : '1');
+final priceCtrl = TextEditingController(text: existing != null ? existing.price.toString() : '');
 showCupertinoDialog(
 context: context,
 builder: (ctx) => CupertinoAlertDialog(
-title: const Text('Позиция сметы'),
+title: Text(existing != null ? 'Редактировать позицию' : 'Позиция сметы'),
 content: Padding(
 padding: const EdgeInsets.only(top: 12),
 child: Column(
 children: [
-CupertinoTextField(controller: nameCtrl, placeholder: 'Название'),
+CupertinoTextField(
+controller: nameCtrl,
+placeholder: 'Название',
+suffix: VoiceMicButton(controller: nameCtrl),
+),
 const SizedBox(height: 8),
 CupertinoTextField(controller: unitCtrl, placeholder: 'Ед. измерения'),
 const SizedBox(height: 8),
@@ -54,15 +67,18 @@ CupertinoDialogAction(
 isDefaultAction: true,
 onPressed: () {
 if (nameCtrl.text.trim().isEmpty) return;
-appState.addEstimateItem(
-nameCtrl.text.trim(),
-unitCtrl.text.trim().isEmpty ? 'шт' : unitCtrl.text.trim(),
-double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1,
-double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0,
-);
+final name = nameCtrl.text.trim();
+final unit = unitCtrl.text.trim().isEmpty ? 'шт' : unitCtrl.text.trim();
+final qty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1;
+final price = double.tryParse(priceCtrl.text.replaceAll(',', '.')) ?? 0;
+if (existing != null) {
+appState.updateEstimateItem(existing.id, name: name, unit: unit, quantity: qty, price: price);
+} else {
+appState.addEstimateItem(name, unit, qty, price);
+}
 Navigator.pop(ctx);
 },
-child: const Text('Добавить'),
+child: Text(existing != null ? 'Сохранить' : 'Добавить'),
 ),
 ],
 ),
@@ -310,6 +326,8 @@ style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center),
 )
 else
 ...items.map((item) => BentoCard(
+child: InkWell(
+onTap: () => _editItem(context, appState, item),
 child: Row(
 children: [
 Expanded(
@@ -330,6 +348,7 @@ icon: Icon(Icons.delete_outline, color: c.destructive, size: 20),
 onPressed: () => appState.removeEstimateItem(item.id),
 ),
 ],
+),
 ),
 )),
 if (items.isNotEmpty) ...[
