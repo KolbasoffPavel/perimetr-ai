@@ -39,7 +39,7 @@ final rooms = context.watch<AppState>().activeProject.rooms;
 
 return Scaffold(
 backgroundColor: c.background,
-appBar: AppBar(title: const Text('Визуализация проекta')),
+appBar: AppBar(title: const Text('Визуализация проекта')),
 body: rooms.isEmpty
 ? Center(
 child: Padding(
