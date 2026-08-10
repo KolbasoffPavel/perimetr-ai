@@ -26,7 +26,8 @@ required this.isDocument,
 }
 
 class AiChatScreen extends StatefulWidget {
-const AiChatScreen({super.key});
+final String? initialPrompt;
+const AiChatScreen({super.key, this.initialPrompt});
 @override
 State<AiChatScreen> createState() => _AiChatScreenState();
 }
@@ -46,6 +47,9 @@ _PendingAttachment? _attachment;
 void initState() {
 super.initState();
 _tts.setLanguage('ru-RU');
+if (widget.initialPrompt != null) {
+_controller.text = widget.initialPrompt!;
+}
 }
 
 @override
@@ -290,12 +294,19 @@ padding: const EdgeInsets.symmetric(horizontal: 4),
 child: Icon(Icons.close, size: 16, color: c.tertiaryLabel),
 ),
 );
+final speakBtn = GestureDetector(
+onTap: () => _tts.speak(m.text),
+child: Padding(
+padding: const EdgeInsets.symmetric(horizontal: 4),
+child: Icon(Icons.volume_up_outlined, size: 16, color: c.accent),
+),
+);
 return Padding(
 padding: const EdgeInsets.only(bottom: 10),
 child: Row(
 mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
 crossAxisAlignment: CrossAxisAlignment.start,
-children: isUser ? [deleteBtn, bubble] : [bubble, deleteBtn],
+children: isUser ? [deleteBtn, bubble] : [bubble, speakBtn, deleteBtn],
 ),
 );
 },
