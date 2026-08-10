@@ -8,6 +8,7 @@ import '../widgets/voice_mic_button.dart';
 import 'room_photo_measure_screen.dart';
 import 'floor_plan_screen.dart';
 import 'ar_ruler_screen.dart';
+import 'project_visualization_screen.dart';
 import 'panorama_screen.dart';
 
 class ProjectScreen extends StatelessWidget {
@@ -87,6 +88,13 @@ children: [
 Text('Замеры', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.label)),
 Row(
 children: [
+IconButton(
+icon: Icon(Icons.view_carousel_outlined, color: c.accent, size: 24),
+tooltip: 'Визуализация проекта',
+onPressed: () => Navigator.of(context).push(
+MaterialPageRoute(builder: (_) => const ProjectVisualizationScreen()),
+),
+),
 IconButton(
 icon: Icon(Icons.straighten, color: c.accent, size: 24),
 tooltip: 'AR-линейка (экспериментально)',
