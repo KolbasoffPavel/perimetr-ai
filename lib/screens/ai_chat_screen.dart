@@ -59,6 +59,13 @@ _tts.stop();
 super.dispose();
 }
 
+String _cleanForSpeech(String text) {
+return text
+.replaceAll(RegExp(r'[.,!?;:()\[\]{}"«»„\u201c\u201d\u2018\u2019`~@#\$%^&*_+=<>/\\|—–-]'), ' ')
+.replaceAll(RegExp(r'\s+'), ' ')
+.trim();
+}
+
 Future<void> _toggleListening() async {
 if (_listening) {
 await _speech.stop();
@@ -200,7 +207,7 @@ if (block['type'] == 'text') buffer.write(block['text']);
 final reply = buffer.toString();
 appState.addChatMessage('assistant', reply.isEmpty ? 'Готово.' : reply);
 if (_speakReplies && reply.isNotEmpty) {
-await _tts.speak(reply);
+await _tts.speak(_cleanForSpeech(reply));
 }
 } catch (e) {
 setState(() => _error = 'Ошибка: $e');
@@ -295,7 +302,7 @@ child: Icon(Icons.close, size: 16, color: c.tertiaryLabel),
 ),
 );
 final speakBtn = GestureDetector(
-onTap: () => _tts.speak(m.text),
+onTap: () => _tts.speak(_cleanForSpeech(m.text)),
 child: Padding(
 padding: const EdgeInsets.symmetric(horizontal: 4),
 child: Icon(Icons.volume_up_outlined, size: 16, color: c.accent),
