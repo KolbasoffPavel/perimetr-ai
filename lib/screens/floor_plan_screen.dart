@@ -38,6 +38,7 @@ bool _outlineMode = true;
 @override
 void initState() {
 super.initState();
+try {
 final plan = widget.room.floorPlan;
 _outline = plan != null
 ? plan.outline.map((p) => Offset(p.x * _canvasSize, p.y * _canvasSize)).toList()
@@ -46,6 +47,13 @@ _items = plan != null
 ? plan.items.map((i) => FloorPlanItem(id: i.id, type: i.type, x: i.x * _canvasSize, y: i.y * _canvasSize)).toList()
 : [];
 if (_outline.length >= 3) _outlineMode = false;
+} catch (_) {
+// Повреждённые сохранённые данные плана (например, из старой версии
+// приложения) — начинаем с чистого листа вместо падения экрана.
+_outline = [];
+_items = [];
+_outlineMode = true;
+}
 }
 
 void _handleTap(Offset local) {
@@ -82,6 +90,7 @@ y: _canvasSize / 2,
 }
 
 void _save(BuildContext context) {
+try {
 final appState = context.read<AppState>();
 final plan = FloorPlan(
 outline: _outline.map((o) => WallPoint(x: o.dx / _canvasSize, y: o.dy / _canvasSize)).toList(),
@@ -89,6 +98,9 @@ items: _items.map((i) => FloorPlanItem(id: i.id, type: i.type, x: i.x / _canvasS
 );
 appState.saveRoomFloorPlan(widget.room.id, plan);
 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('План сохранён')));
+} catch (e) {
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не удалось сохранить план: $e')));
+}
 }
 
 Future<void> _exportDxf(BuildContext context) async {
