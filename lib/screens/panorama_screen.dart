@@ -1,5 +1,103 @@
-String? _error;Future<void> _importFrom(ImageSource source) async {final picker = ImagePicker();final XFile? picked = await picker.pickImage(source: source, imageQuality: 95);if (picked == null) return;setState(() {_importing = true;_error = null;});try {final sourceFile = File(picked.path);final dir = await getApplicationDocumentsDirectory();final panoramasDir = Directory('${dir.path}/panoramas');if (!await panoramasDir.exists()) {await panoramasDir.create(recursive: true);}final destPath = '${panoramasDir.path}/${widget.room.id}.jpg';await sourceFile.copy(destPath);if (mounted) {context.read<AppState>().saveRoomPanorama(widget.room.id, destPath);}} catch (e) {setState(() => _error = 'Не удалось загрузить панораму: $e');} finally {if (mounted) setState(() => _importing = false);}}void _showSourcePicker() {showModalBottomSheet(context: context,builder: (ctx) => SafeArea(child: Wrap(children: [ListTile(leading: const Icon(Icons.camera_alt_outlined),title: const Text('Снять камерой (режим «Панорама»)'),onTap: () {Navigator.pop(ctx);_importFrom(ImageSource.camera);},),ListTile(leading: const Icon(Icons.photo_library_outlined),title: const Text('Выбрать из галереи'),onTap: () {Navigator.pop(ctx);_importFrom(ImageSource.gallery);},),],),),);}void _deletePanorama() {showDialog(context: context,builder: (ctx) => AlertDialog(title: const Text('Удалить панораму?'),content: const Text('Снимок будет удалён из помещения. Это действие нельзя отменить.'),actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),TextButton(onPressed: () {context.read<AppState>().clearRoomPanorama(widget.room.id);Navigator.pop(ctx);Navigator.pop(context);},child: const Text('Удалить'),),],),);}
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:panorama_viewer/panorama_viewer.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
+import '../theme/app_colors.dart';
 
+/// Просмотр панорамы 360° для помещения. Съёмку панорамы в приложении
+/// сознательно не делаем (готовые пакеты сшивки для Flutter несовместимы
+/// с современной Android-сборкой) — вместо этого открываем штатную камеру
+/// телефона (в ней уже есть режим «Панорама» почти на любом Android) или
+/// даём выбрать готовый снимок из галереи для интерактивного просмотра.
+class PanoramaScreen extends StatefulWidget {
+final Room room;
+const PanoramaScreen({super.key, required this.room});
+@override
+State<PanoramaScreen> createState() => _PanoramaScreenState();
+}
+
+class _PanoramaScreenState extends State<PanoramaScreen> {
+bool _importing = false;
+String? _error;
+
+Future<void> _importFrom(ImageSource source) async {
+final picker = ImagePicker();
+final XFile? picked = await picker.pickImage(source: source, imageQuality: 95);
+if (picked == null) return;
+setState(() {
+_importing = true;
+_error = null;
+});
+try {
+final sourceFile = File(picked.path);
+final dir = await getApplicationDocumentsDirectory();
+final panoramasDir = Directory('${dir.path}/panoramas');
+if (!await panoramasDir.exists()) {
+await panoramasDir.create(recursive: true);
+}
+final destPath = '${panoramasDir.path}/${widget.room.id}.jpg';
+await sourceFile.copy(destPath);
+if (mounted) {
+context.read<AppState>().saveRoomPanorama(widget.room.id, destPath);
+}
+} catch (e) {
+setState(() => _error = 'Не удалось загрузить панораму: $e');
+} finally {
+if (mounted) setState(() => _importing = false);
+}
+}
+
+void _showSourcePicker() {
+showModalBottomSheet(
+context: context,
+builder: (ctx) => SafeArea(
+child: Wrap(
+children: [
+ListTile(
+leading: const Icon(Icons.camera_alt_outlined),
+title: const Text('Снять камерой (режим «Панорама»)'),
+onTap: () {
+Navigator.pop(ctx);
+_importFrom(ImageSource.camera);
+},
+),
+ListTile(
+leading: const Icon(Icons.photo_library_outlined),
+title: const Text('Выбрать из галереи'),
+onTap: () {
+Navigator.pop(ctx);
+_importFrom(ImageSource.gallery);
+},
+),
+],
+),
+),
+);
+}
+
+void _deletePanorama() {
+showDialog(
+context: context,
+builder: (ctx) => AlertDialog(
+title: const Text('Удалить панораму?'),
+content: const Text('Снимок будет удалён из помещения. Это действие нельзя отменить.'),
+actions: [
+TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+TextButton(
+onPressed: () {
+context.read<AppState>().clearRoomPanorama(widget.room.id);
+Navigator.pop(ctx);
+Navigator.pop(context);
+},
+child: const Text('Удалить'),
+),
+],
+),
+);
+}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
