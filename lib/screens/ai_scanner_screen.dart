@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/before_after_slider.dart';
 
 class AiScannerScreen extends StatefulWidget {
 const AiScannerScreen({super.key});
@@ -190,13 +191,13 @@ tone: ButtonTone.secondary,
 onPressed: _visualize,
 ),
 ],
-if (_visualization != null) ...[
+if (_visualization != null && _photo != null) ...[
 const SizedBox(height: 16),
 BentoCard(
-title: 'Визуализация (черновой набросок ИИ)',
-child: ClipRRect(
-borderRadius: BorderRadius.circular(10),
-child: Image.memory(_visualization!),
+title: 'До / после (потяните разделитель)',
+child: BeforeAfterSlider(
+beforeImage: FileImage(File(_photo!.path)),
+afterImage: MemoryImage(_visualization!),
 ),
 ),
 Padding(
