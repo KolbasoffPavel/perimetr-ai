@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter/services.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/swipe_to_delete.dart';
 import '../widgets/voice_mic_button.dart';
 import 'room_photo_measure_screen.dart';
 import 'floor_plan_screen.dart';
@@ -101,7 +103,10 @@ onPressed: () => _measureByPhoto(context, appState),
 ),
 IconButton(
 icon: Icon(Icons.add_circle, color: c.accent, size: 28),
-onPressed: () => _addRoom(context, appState),
+onPressed: () {
+HapticFeedback.lightImpact();
+_addRoom(context, appState);
+},
 ),
 ],
 ),
@@ -116,17 +121,47 @@ child: Text('Помещений пока нет — добавьте перво�
 ),
 )
 else
-...rooms.map((room) => BentoCard(
+...rooms.asMap().entries.map((entry) {
+final roomIndex = entry.key;
+final room = entry.value;
+return SwipeToDelete(
+itemKey: room.id,
+confirmLabel: 'Помещение "${room.name}" удалено',
+onDelete: () => appState.removeRoom(room.id),
+onUndo: () => appState.insertRoom(roomIndex, room),
+child: BentoCard(
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
 Row(
 children: [
+GestureDetector(
+onTap: () {
+HapticFeedback.selectionClick();
+appState.toggleRoomDone(room.id);
+},
+child: Padding(
+padding: const EdgeInsets.only(right: 10),
+child: Icon(
+room.isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+color: room.isDone ? c.accent : c.tertiaryLabel,
+size: 24,
+),
+),
+),
 Expanded(
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
-Text(room.name, style: TextStyle(fontWeight: FontWeight.w600, color: c.label, fontSize: 16)),
+Text(
+room.name,
+style: TextStyle(
+fontWeight: FontWeight.w600,
+color: room.isDone ? c.secondaryLabel : c.label,
+fontSize: 16,
+decoration: room.isDone ? TextDecoration.lineThrough : null,
+),
+),
 const SizedBox(height: 4),
 Text(
 '${room.length.toStringAsFixed(2)} × ${room.width.toStringAsFixed(2)} × ${room.height.toStringAsFixed(2)} м  •  ${room.area.toStringAsFixed(1)} м²',
@@ -134,10 +169,6 @@ style: TextStyle(color: c.secondaryLabel, fontSize: 13),
 ),
 ],
 ),
-),
-IconButton(
-icon: Icon(Icons.delete_outline, color: c.destructive, size: 20),
-onPressed: () => appState.removeRoom(room.id),
 ),
 ],
 ),
@@ -149,7 +180,7 @@ onPressed: () => Navigator.of(context).push(
 MaterialPageRoute(builder: (_) => FloorPlanScreen(room: room)),
 ),
 icon: Icon(room.floorPlan != null ? Icons.map : Icons.add_location_alt, size: 18),
-label: Text(room.floorPlan != null ? 'План' : 'План'),
+label: const Text('План'),
 ),
 TextButton.icon(
 onPressed: () => Navigator.of(context).push(
@@ -162,7 +193,9 @@ label: const Text('Панорама'),
 ),
 ],
 ),
-)),
+),
+);
+}),
 ],
 ),
 ),
