@@ -1,53 +1,5 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
-import 'package:panorama_viewer/panorama_viewer.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
-import '../state/app_state.dart';
-import '../theme/app_colors.dart';
+String? _error;Future<void> _importFrom(ImageSource source) async {final picker = ImagePicker();final XFile? picked = await picker.pickImage(source: source, imageQuality: 95);if (picked == null) return;setState(() {_importing = true;_error = null;});try {final sourceFile = File(picked.path);final dir = await getApplicationDocumentsDirectory();final panoramasDir = Directory('${dir.path}/panoramas');if (!await panoramasDir.exists()) {await panoramasDir.create(recursive: true);}final destPath = '${panoramasDir.path}/${widget.room.id}.jpg';await sourceFile.copy(destPath);if (mounted) {context.read<AppState>().saveRoomPanorama(widget.room.id, destPath);}} catch (e) {setState(() => _error = 'Не удалось загрузить панораму: $e');} finally {if (mounted) setState(() => _importing = false);}}void _showSourcePicker() {showModalBottomSheet(context: context,builder: (ctx) => SafeArea(child: Wrap(children: [ListTile(leading: const Icon(Icons.camera_alt_outlined),title: const Text('Снять камерой (режим «Панорама»)'),onTap: () {Navigator.pop(ctx);_importFrom(ImageSource.camera);},),ListTile(leading: const Icon(Icons.photo_library_outlined),title: const Text('Выбрать из галереи'),onTap: () {Navigator.pop(ctx);_importFrom(ImageSource.gallery);},),],),),);}void _deletePanorama() {showDialog(context: context,builder: (ctx) => AlertDialog(title: const Text('Удалить панораму?'),content: const Text('Снимок будет удалён из помещения. Это действие нельзя отменить.'),actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),TextButton(onPressed: () {context.read<AppState>().clearRoomPanorama(widget.room.id);Navigator.pop(ctx);Navigator.pop(context);},child: const Text('Удалить'),),],),);}
 
-/// Просмотр панорамы 360° для помещения. Съёмку панорамы в приложении
-/// сознательно не делаем (готовые пакеты сшивки для Flutter несовместимы
-/// с современной Android-сборкой) — вместо этого используем панорамный
-/// режим штатной камеры телефона (есть почти на любом Android) и просто
-/// импортируем готовый снимок для интерактивного просмотра.
-class PanoramaScreen extends StatefulWidget {
-final Room room;
-const PanoramaScreen({super.key, required this.room});
-@override
-State<PanoramaScreen> createState() => _PanoramaScreenState();
-}
-
-class _PanoramaScreenState extends State<PanoramaScreen> {
-bool _importing = false;
-String? _error;
-
-Future<void> _importPanorama() async {
-final result = await FilePicker.platform.pickFiles(type: FileType.image);
-if (result == null || result.files.single.path == null) return;
-setState(() {
-_importing = true;
-_error = null;
-});
-try {
-final sourceFile = File(result.files.single.path!);
-final dir = await getApplicationDocumentsDirectory();
-final panoramasDir = Directory('${dir.path}/panoramas');
-if (!await panoramasDir.exists()) {
-await panoramasDir.create(recursive: true);
-}
-final destPath = '${panoramasDir.path}/${widget.room.id}.jpg';
-await sourceFile.copy(destPath);
-if (mounted) {
-context.read<AppState>().saveRoomPanorama(widget.room.id, destPath);
-}
-} catch (e) {
-setState(() => _error = 'Не удалось загрузить панораму: $e');
-} finally {
-if (mounted) setState(() => _importing = false);
-}
-}
 @override
 Widget build(BuildContext context) {
 final c = context.colors;
@@ -58,12 +10,18 @@ backgroundColor: Colors.black,
 appBar: AppBar(
 title: Text('Панорама: ${widget.room.name}'),
 actions: [
+if (panoramaPath != null)
+IconButton(
+icon: const Icon(Icons.delete_outline),
+tooltip: 'Удалить панораму',
+onPressed: _deletePanorama,
+),
 IconButton(
 icon: _importing
 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
 : const Icon(Icons.add_photo_alternate_outlined),
 tooltip: panoramaPath != null ? 'Заменить панораму' : 'Загрузить панораму',
-onPressed: _importing ? null : _importPanorama,
+onPressed: _importing ? null : _showSourcePicker,
 ),
 ],
 ),
@@ -85,13 +43,13 @@ textAlign: TextAlign.center,
 const SizedBox(height: 8),
 Text(
 'Снимите панораму штатной камерой телефона (режим «Панорама» есть почти на любом Android) '
-'и загрузите готовый снимок сюда для просмотра.',
+'или выберите готовый снимок из галереи.',
 style: TextStyle(color: Colors.white70, fontSize: 13),
 textAlign: TextAlign.center,
 ),
 const SizedBox(height: 20),
 ElevatedButton.icon(
-onPressed: _importing ? null : _importPanorama,
+onPressed: _importing ? null : _showSourcePicker,
 icon: const Icon(Icons.add_photo_alternate_outlined),
 label: Text(_importing ? 'Загрузка...' : 'Загрузить панораму'),
 ),
