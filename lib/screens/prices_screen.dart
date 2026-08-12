@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter/services.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/swipe_to_delete.dart';
 import '../widgets/voice_mic_button.dart';
 import 'material_calculator_screen.dart';
 
@@ -140,7 +142,10 @@ onPressed: _importing ? null : () => _importCsv(appState),
 ),
 IconButton(
 icon: Icon(Icons.add_circle, color: c.accent, size: 28),
-onPressed: () => _addPrice(context, appState),
+onPressed: () {
+HapticFeedback.lightImpact();
+_addPrice(context, appState);
+},
 ),
 ],
 ),
@@ -153,7 +158,15 @@ padding: const EdgeInsets.symmetric(vertical: 40),
 child: Center(child: Text('Прайс-лист пуст — добавьте позиции или загрузите файл', style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center)),
 )
 else
-...prices.map((item) => BentoCard(
+...prices.asMap().entries.map((entry) {
+final priceIndex = entry.key;
+final item = entry.value;
+return SwipeToDelete(
+itemKey: item.id,
+confirmLabel: 'Позиция "${item.name}" удалена',
+onDelete: () => appState.removePriceItem(item.id),
+onUndo: () => appState.insertPriceItem(priceIndex, item),
+child: BentoCard(
 child: Row(
 children: [
 Expanded(
@@ -170,19 +183,18 @@ IconButton(
 icon: Icon(Icons.add_shopping_cart, color: c.accent, size: 20),
 tooltip: 'Добавить в смету',
 onPressed: () {
+HapticFeedback.lightImpact();
 appState.addEstimateItem(item.name, item.unit, 1, item.price);
 ScaffoldMessenger.of(context).showSnackBar(
 SnackBar(content: Text('«${item.name}» добавлено в смету')),
 );
 },
 ),
-IconButton(
-icon: Icon(Icons.delete_outline, color: c.destructive, size: 20),
-onPressed: () => appState.removePriceItem(item.id),
-),
 ],
 ),
-)),
+),
+);
+}),
 ],
 ),
 ),
