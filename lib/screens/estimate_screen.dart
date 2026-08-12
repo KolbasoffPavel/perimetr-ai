@@ -12,7 +12,9 @@ import '../services/settings_store.dart';
 import '../services/bitrix24_service.dart';
 import '../services/ai_service.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter/services.dart';
 import '../widgets/bento_card.dart';
+import '../widgets/swipe_to_delete.dart';
 import '../widgets/voice_mic_button.dart';
 
 class EstimateScreen extends StatefulWidget {
@@ -67,6 +69,7 @@ CupertinoDialogAction(
 isDefaultAction: true,
 onPressed: () {
 if (nameCtrl.text.trim().isEmpty) return;
+HapticFeedback.lightImpact();
 final name = nameCtrl.text.trim();
 final unit = unitCtrl.text.trim().isEmpty ? 'шт' : unitCtrl.text.trim();
 final qty = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1;
@@ -325,7 +328,15 @@ style: TextStyle(color: c.secondaryLabel), textAlign: TextAlign.center),
 ),
 )
 else
-...items.map((item) => BentoCard(
+...items.asMap().entries.map((entry) {
+final itemIndex = entry.key;
+final item = entry.value;
+return SwipeToDelete(
+itemKey: item.id,
+confirmLabel: 'Позиция "${item.name}" удалена',
+onDelete: () => appState.removeEstimateItem(item.id),
+onUndo: () => appState.insertEstimateItem(itemIndex, item),
+child: BentoCard(
 child: InkWell(
 onTap: () => _editItem(context, appState, item),
 child: Row(
@@ -343,14 +354,12 @@ style: TextStyle(color: c.secondaryLabel, fontSize: 13),
 ],
 ),
 ),
-IconButton(
-icon: Icon(Icons.delete_outline, color: c.destructive, size: 20),
-onPressed: () => appState.removeEstimateItem(item.id),
-),
 ],
 ),
 ),
-)),
+),
+);
+}),
 if (items.isNotEmpty) ...[
 const SizedBox(height: 8),
 BentoCard(
