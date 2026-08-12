@@ -41,10 +41,16 @@ super.initState();
 try {
 final plan = widget.room.floorPlan;
 _outline = plan != null
-? plan.outline.map((p) => Offset(p.x * _canvasSize, p.y * _canvasSize)).toList()
+? plan.outline
+.where((p) => p.x.isFinite && p.y.isFinite)
+.map((p) => Offset(p.x * _canvasSize, p.y * _canvasSize))
+.toList()
 : [];
 _items = plan != null
-? plan.items.map((i) => FloorPlanItem(id: i.id, type: i.type, x: i.x * _canvasSize, y: i.y * _canvasSize)).toList()
+? plan.items
+.where((i) => i.x.isFinite && i.y.isFinite)
+.map((i) => FloorPlanItem(id: i.id, type: i.type, x: i.x * _canvasSize, y: i.y * _canvasSize))
+.toList()
 : [];
 if (_outline.length >= 3) _outlineMode = false;
 } catch (_) {
@@ -182,8 +188,8 @@ left: _items[i].x - 18,
 top: _items[i].y - 18,
 child: GestureDetector(
 onPanUpdate: (d) => setState(() {
-_items[i].x = (_items[i].x + d.delta.dx).clamp(0, _canvasSize);
-_items[i].y = (_items[i].y + d.delta.dy).clamp(0, _canvasSize);
+_items[i].x = (_items[i].x + d.delta.dx).clamp(0.0, _canvasSize);
+_items[i].y = (_items[i].y + d.delta.dy).clamp(0.0, _canvasSize);
 }),
 onLongPress: () => setState(() => _items.removeAt(i)),
 child: Container(
