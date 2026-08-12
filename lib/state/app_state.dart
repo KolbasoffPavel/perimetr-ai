@@ -307,6 +307,13 @@ notifyListeners();
 _persist();
 }
 
+void clearRoomPanorama(String roomId) {
+final room = activeProject.rooms.firstWhere((r) => r.id == roomId);
+room.panoramaPath = null;
+notifyListeners();
+_persist();
+}
+
 void addPriceItem(String name, String unit, double price) {
 priceList.add(PriceItem(id: _nextId(), name: name, unit: unit, price: price));
 notifyListeners();
