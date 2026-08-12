@@ -49,7 +49,8 @@ double width;
 double height;
 FloorPlan? floorPlan;
 String? panoramaPath;
-Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7, this.floorPlan, this.panoramaPath});
+bool isDone;
+Room({required this.id, required this.name, this.length = 0, this.width = 0, this.height = 2.7, this.floorPlan, this.panoramaPath, this.isDone = false});
 double get area => length * width;
 Map<String, dynamic> toJson() => {
 'id': id,
@@ -59,6 +60,7 @@ Map<String, dynamic> toJson() => {
 'height': height,
 if (floorPlan != null) 'floorPlan': floorPlan!.toJson(),
 if (panoramaPath != null) 'panoramaPath': panoramaPath,
+'isDone': isDone,
 };
 factory Room.fromJson(Map<String, dynamic> j) => Room(
 id: j['id'] as String,
@@ -68,6 +70,7 @@ width: (j['width'] as num).toDouble(),
 height: (j['height'] as num).toDouble(),
 floorPlan: j['floorPlan'] != null ? FloorPlan.fromJson(j['floorPlan'] as Map<String, dynamic>) : null,
 panoramaPath: j['panoramaPath'] as String?,
+isDone: j['isDone'] as bool? ?? false,
 );
 }
 
@@ -293,6 +296,20 @@ notifyListeners();
 _persist();
 }
 
+void insertRoom(int index, Room room) {
+final i = index.clamp(0, activeProject.rooms.length);
+activeProject.rooms.insert(i, room);
+notifyListeners();
+_persist();
+}
+
+void toggleRoomDone(String id) {
+final room = activeProject.rooms.firstWhere((r) => r.id == id);
+room.isDone = !room.isDone;
+notifyListeners();
+_persist();
+}
+
 void saveRoomFloorPlan(String roomId, FloorPlan plan) {
 final room = activeProject.rooms.firstWhere((r) => r.id == roomId);
 room.floorPlan = plan;
@@ -322,6 +339,13 @@ _persist();
 
 void removePriceItem(String id) {
 priceList.removeWhere((p) => p.id == id);
+notifyListeners();
+_persist();
+}
+
+void insertPriceItem(int index, PriceItem item) {
+final i = index.clamp(0, priceList.length);
+priceList.insert(i, item);
 notifyListeners();
 _persist();
 }
@@ -359,6 +383,13 @@ notifyListeners();
 _persist();
 }
 
+void insertEstimateItem(int index, EstimateItem item) {
+final i = index.clamp(0, activeProject.estimateItems.length);
+activeProject.estimateItems.insert(i, item);
+notifyListeners();
+_persist();
+}
+
 void updateEstimateItem(String id, {String? name, String? unit, double? quantity, double? price}) {
 final item = activeProject.estimateItems.firstWhere((e) => e.id == id);
 if (name != null) item.name = name;
@@ -391,6 +422,13 @@ _persist();
 
 void removeChatMessage(String id) {
 activeProject.chatMessages.removeWhere((m) => m.id == id);
+notifyListeners();
+_persist();
+}
+
+void insertChatMessage(int index, ChatMessage message) {
+final i = index.clamp(0, activeProject.chatMessages.length);
+activeProject.chatMessages.insert(i, message);
 notifyListeners();
 _persist();
 }
